@@ -1,11 +1,15 @@
 # TraductorSimple
-Un traductor simple español-inglés, inglés-español  en python para Linux, Windows y Termux.
+Un traductor simple y ligero español-inglés, inglés-español en python para Linux, Windows y Termux.
 
-Instalacion en Windows:
+Instalación:
+----------------
+
+En Windows:
 
 
-Instala python en windows desde la web oficial.
+Instala python en windows desde la web oficial de Python.
 
+Descarga TraductorSimple.py desde mi pagina en Github.
 
 Prueba py:
 
@@ -17,10 +21,40 @@ Si aparece:
 
 Python 3.14.6
 
-instala requests con:
+Entonces instala requests con:
 
 py -m pip install requests
 
-ejecutar el traductor estando en el directorio con:
+Y podrás ejecutar el traductor con:
 
-py TraductorSimple.py
+py traductor.py
+
+o con click derecho sobre el archivo -> abrir con -> Python
+
+-----------------------------------------------
+
+En Linux y Termux:
+
+Descargar:
+
+git clone https://github.com/Valbef/TraductorSimple.git
+
+si utilizas python3:
+
+python3 -m pip install requests
+
+Abrir:
+
+cd TraductorSimple
+
+python3 TraductorSimple.py
+
+-------------------------------------------------
+
+Uso:
+
+Escribe un texto y pulsa Enter para traducirlo.
+
+Para cambiar de idioma introduce L y pulsa Enter.
+
+Para copiar la traduccion introduce C y pulsa Enter
