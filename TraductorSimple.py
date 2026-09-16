@@ -58,6 +58,7 @@ def mostrar_cabecera():
 
     print("L + Enter  →  Cambiar idiomas")
     print("C + Enter  →  Copiar traducción")
+    print("Enter      →  Siguiente")
     print("Ctrl+C     →  Salir")
 
     print()
@@ -72,10 +73,6 @@ def mostrar_cabecera():
 def copiar_portapapeles(texto):
 
     if not texto:
-
-        mostrar_mensaje(
-            "No hay ninguna traducción para copiar."
-        )
 
         return False
 
@@ -394,7 +391,44 @@ def cambiar_idiomas():
 
     origen, destino = destino, origen
 
-    mostrar_cabecera()
+
+# ============================================================
+# ESPERAR ENTER PARA CONTINUAR
+# ============================================================
+
+def esperar_enter():
+
+    while True:
+
+        try:
+
+            entrada = input()
+
+        except KeyboardInterrupt:
+
+            raise
+
+        except EOFError:
+
+            return False
+
+        # ----------------------------------------------------
+        # Solamente Enter.
+        # ----------------------------------------------------
+
+        if entrada == "":
+
+            return True
+
+        # ----------------------------------------------------
+        # Si escribe algo, no hacemos nada.
+        # Volvemos a pedir únicamente Enter.
+        # ----------------------------------------------------
+
+        print(
+            "Pulsa solamente Enter para continuar.",
+            flush=True
+        )
 
 
 # ============================================================
@@ -406,7 +440,7 @@ def main():
     global ultima_traduccion
 
     # --------------------------------------------------------
-    # Indica si tenemos una traducción disponible para copiar.
+    # Indica si existe una traducción que se puede copiar.
     # --------------------------------------------------------
 
     traduccion_recibida = False
@@ -418,46 +452,44 @@ def main():
         try:
 
             # =================================================
-            # LEER UNA LÍNEA COMPLETA
-            # =================================================
-            #
-            # input() se encarga de:
-            #
-            # - Enter
-            # - Backspace
-            # - edición de la línea
-            # - Windows
-            # - Linux
-            # - Termux
-            #
+            # ESCRIBIR TEXTO
             # =================================================
 
             texto = input("Texto: ")
 
         except KeyboardInterrupt:
 
-            print()
+            limpiar_terminal()
+
             print()
             print("Saliendo...")
+            print()
 
             break
 
         except EOFError:
 
-            print()
+            limpiar_terminal()
+
             print()
             print("Saliendo...")
+            print()
 
             break
 
         # =====================================================
-        # ELIMINAR ESPACIOS EXTERIORES
+        # QUITAR ESPACIOS
         # =====================================================
 
         texto = texto.strip()
 
         # =====================================================
-        # ENTRADA VACÍA
+        # ENTER SOLO
+        # =====================================================
+        #
+        # Si no estamos escribiendo una traducción y se pulsa
+        # Enter, simplemente seguimos esperando.
+        #
         # =====================================================
 
         if not texto:
@@ -468,11 +500,7 @@ def main():
         # CAMBIAR IDIOMAS
         # =====================================================
         #
-        # Escribir exactamente:
-        #
-        #     L
-        #
-        # y pulsar Enter.
+        # L + Enter
         #
         # =====================================================
 
@@ -484,19 +512,16 @@ def main():
 
             traduccion_recibida = False
 
+            mostrar_cabecera()
+
             continue
 
         # =====================================================
         # COPIAR TRADUCCIÓN
         # =====================================================
         #
-        # Escribir:
+        # C + Enter
         #
-        #     C
-        #
-        # y pulsar Enter.
-        #
-        # Solo funciona si tenemos una traducción.
         # =====================================================
 
         if texto == "C":
@@ -507,7 +532,29 @@ def main():
                     "No hay ninguna traducción para copiar."
                 )
 
+                print(
+                    "Pulsa Enter para continuar: ",
+                    end="",
+                    flush=True
+                )
+
+                try:
+
+                    if not esperar_enter():
+
+                        break
+
+                except KeyboardInterrupt:
+
+                    break
+
+                mostrar_cabecera()
+
                 continue
+
+            # ------------------------------------------------
+            # Copiar
+            # ------------------------------------------------
 
             if copiar_portapapeles(
                 ultima_traduccion
@@ -523,14 +570,73 @@ def main():
                     "✗ No se pudo copiar al portapapeles."
                 )
 
+            # ------------------------------------------------
+            # Después de copiar NO limpiamos todavía.
+            #
+            # El usuario debe pulsar Enter solo.
+            # ------------------------------------------------
+
+            print(
+                "Pulsa Enter para continuar: ",
+                end="",
+                flush=True
+            )
+
+            try:
+
+                if not esperar_enter():
+
+                    break
+
+            except KeyboardInterrupt:
+
+                break
+
+            mostrar_cabecera()
+
             continue
 
         # =====================================================
         # TRADUCIR
         # =====================================================
 
+        limpiar_terminal()
+
+        print("=" * 60)
+        print("                    TRADUCTOR")
+        print("=" * 60)
         print()
-        print("Traduciendo...")
+
+        print(
+            f"              {IDIOMAS[origen]} → {IDIOMAS[destino]}"
+        )
+
+        print()
+
+        print("=" * 60)
+        print()
+
+        print("L + Enter  →  Cambiar idiomas")
+        print("C + Enter  →  Copiar traducción")
+        print("Enter      →  Siguiente")
+        print("Ctrl+C     →  Salir")
+
+        print()
+        print("-" * 60)
+        print()
+
+        print(
+            "Texto:",
+            texto
+        )
+
+        print()
+
+        print(
+            "Traduciendo...",
+            flush=True
+        )
+
         print()
 
         traduccion_recibida = False
@@ -552,6 +658,102 @@ def main():
             print("-" * 60)
             print()
 
+            # ------------------------------------------------
+            # Ahora el usuario puede:
+            #
+            # C + Enter → copiar
+            # L + Enter → cambiar idioma
+            # Enter     → siguiente
+            #
+            # ------------------------------------------------
+
+            print(
+                "C + Enter → copiar | "
+                "L + Enter → cambiar idioma | "
+                "Enter → siguiente"
+            )
+
+            while True:
+
+                try:
+
+                    siguiente = input()
+
+                except KeyboardInterrupt:
+
+                    raise
+
+                except EOFError:
+
+                    return
+
+                # --------------------------------------------
+                # ENTER SOLO
+                # --------------------------------------------
+
+                if siguiente == "":
+
+                    limpiar_terminal()
+
+                    mostrar_cabecera()
+
+                    break
+
+                # --------------------------------------------
+                # COPIAR
+                # --------------------------------------------
+
+                if siguiente == "C":
+
+                    if copiar_portapapeles(
+                        ultima_traduccion
+                    ):
+
+                        mostrar_mensaje(
+                            "✓ Traducción copiada al portapapeles."
+                        )
+
+                    else:
+
+                        mostrar_mensaje(
+                            "✗ No se pudo copiar al portapapeles."
+                        )
+
+                    print(
+                        "Pulsa Enter para continuar: ",
+                        end="",
+                        flush=True
+                    )
+
+                    continue
+
+                # --------------------------------------------
+                # CAMBIAR IDIOMA
+                # --------------------------------------------
+
+                if siguiente == "L":
+
+                    cambiar_idiomas()
+
+                    ultima_traduccion = ""
+
+                    traduccion_recibida = False
+
+                    limpiar_terminal()
+
+                    mostrar_cabecera()
+
+                    break
+
+                # --------------------------------------------
+                # CUALQUIER OTRA COSA
+                # --------------------------------------------
+
+                print(
+                    "Introduce C, L o pulsa solamente Enter.",
+                    flush=True
+                )
+
         except Exception as error:
 
             ultima_traduccion = ""
@@ -564,6 +766,24 @@ def main():
             print(error)
             print("-" * 60)
             print()
+
+            print(
+                "Pulsa Enter para continuar: ",
+                end="",
+                flush=True
+            )
+
+            try:
+
+                if not esperar_enter():
+
+                    break
+
+            except KeyboardInterrupt:
+
+                break
+
+            mostrar_cabecera()
 
 
 # ============================================================
