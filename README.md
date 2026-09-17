@@ -1,5 +1,5 @@
 # TraductorSimple
-Un traductor simple, ligero y sin conexion a internet de español-inglés, inglés-español en python para Linux, Windows y Termux. 
+Un traductor simple y ligero de español-inglés, inglés-español en python para Linux, Windows y Termux. 
 
 (Este proyecto no está terminado y da varios errores en las traducciones)
 
