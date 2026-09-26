@@ -1,9 +1,16 @@
 # TraductorSimple
-Un traductor simple y ligero de español-inglés, inglés-español en python para Linux, Windows y Termux. 
+Un traductor simple, ligero y 100% offline de español-inglés, inglés-español
+en python para Linux, Windows y Termux. 
 
-Utiliza la API de MyMemory cuando no encuentra el resultado en el diccionario local. (esto utiliza conexion a internet)
+No requiere de ninguna libreria externa.
 
-(Este proyecto no está terminado y da varios errores en las traducciones)
+
+Dispone de funcion de diccionario personalizado para guardar manualmente 
+las traducciones que no estén en el diccionario.
+
+(Este proyecto no está terminado y da varios errores en las traducciones
+pero es completamente funcional.)
+(En las proximas actualizaciones se extenderá el diccionario)
 
 Instalación:
 ----------------
@@ -25,10 +32,6 @@ Si aparece:
 
 Python 3.14.6
 
-Entonces instala requests con:
-
-py -m pip install requests
-
 Y podrás ejecutar el traductor con:
 
 py TraductorSimple.py
@@ -43,9 +46,6 @@ Descargar:
 
 git clone https://github.com/Valbef/TraductorSimple.git
 
-si utilizas python3:
-
-python3 -m pip install requests
 
 Abrir:
 
@@ -56,9 +56,20 @@ python3 TraductorSimple.py
 -------------------------------------------------
 
 Uso:
+(Las letras de los comandos deben de introducirse en MAYUSCULAS)
 
 Escribe un texto y pulsa Enter para traducirlo.
 
-Para cambiar de idioma introduce L y pulsa Enter.
-
-Para copiar la traduccion introduce C y pulsa Enter
+  L + Enter  →  Cambiar idiomas
+  
+  G + Enter  →  Guardar traducción
+  
+  B + Enter  →  Borrar traducción
+  
+  V + Enter  →  Ver traducciones
+  
+  C + Enter  →  Copiar traducción
+  
+  Enter      →  Siguiente
+  
+  Q + Enter  →  Salir
