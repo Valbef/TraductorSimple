@@ -10,13 +10,13 @@ las traducciones que no estén en el diccionario.
 
 (Este proyecto no está terminado y da varios errores en las traducciones
 pero es completamente funcional.)
+
 (En las proximas actualizaciones se extenderá el diccionario)
 
 Instalación:
 ----------------
 
 En Windows:
-
 
 Instala python en windows desde la web oficial de Python.
 
