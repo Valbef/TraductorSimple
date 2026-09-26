@@ -1,957 +1,2526 @@
-import requests
+# ============================================================
+# TRADUCTOR OFFLINE
+# Español <-> Inglés
+#
+# Diccionario base:
+#     traducciones.py
+#
+# Diccionario personalizado:
+#     traducciones_usuario.py
+#
+# Este archivo contiene el MOTOR del traductor.
+#
+# Compatible con:
+#     Windows
+#     Linux
+#     Termux
+#
+# Sin conexión a Internet.
+# Sin librerías externas de Python.
+#
+# ============================================================
+#
+# COMANDOS:
+#
+#     L + Enter  -> Cambiar idiomas
+#     G + Enter  -> Guardar traducción personalizada
+#     B + Enter  -> Borrar traducción personalizada
+#     V + Enter  -> Ver traducciones personalizadas
+#     C + Enter  -> Copiar traducción
+#     Enter      -> Siguiente
+#     Ctrl+C     -> Salir
+#
+# ============================================================
+#
+# REGLAS:
+#
+#     - Ignora mayúsculas/minúsculas.
+#     - NO ignora acentos.
+#     - Las traducciones personalizadas tienen prioridad.
+#     - Las frases largas tienen prioridad sobre palabras.
+#     - Se conservan espacios y puntuación.
+#     - Se reconocen preguntas con:
+#
+#           ¿pregunta?
+#           pregunta?
+#           ¿pregunta
+#
+#       cuando la estructura permite identificarla.
+#
+# ============================================================
+
+
+import ast
 import os
-import platform
+import re
+import shutil
 import subprocess
+import tempfile
+from pathlib import Path
+
+from traducciones import TRADUCCIONES
 
 
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
 
-IDIOMAS = {
-    "es": "Español",
-    "en": "Inglés"
-}
+IDIOMA_ORIGEN_INICIAL = "es"
+IDIOMA_DESTINO_INICIAL = "en"
 
-origen = "es"
-destino = "en"
+NOMBRE_ARCHIVO_USUARIO = "traducciones_usuario.py"
 
-API_URL = "https://api.mymemory.translated.net/get"
+RUTA_ARCHIVO_USUARIO = (
+    Path(__file__).resolve().parent
+    / NOMBRE_ARCHIVO_USUARIO
+)
 
-ultima_traduccion = ""
 
-WINDOWS = platform.system() == "Windows"
+# ============================================================
+# DICCIONARIO PERSONALIZADO
+# ============================================================
 
-TRADUCCIONES_PERSONALIZADAS = {
+def crear_archivo_usuario():
+    """
+    Crea traducciones_usuario.py si todavía no existe.
 
-    # ========================================================
-    # ESPAÑOL → INGLÉS
-    # ========================================================
+    El usuario también puede editar este archivo
+    manualmente.
+    """
+
+    if RUTA_ARCHIVO_USUARIO.exists():
+        return
+
+    contenido = '''# ============================================================
+# TRADUCCIONES PERSONALIZADAS
+#
+# Este archivo es gestionado por TraductorSimple.py.
+#
+# También puedes editarlo manualmente.
+#
+# Formato:
+#
+# TRADUCCIONES_USUARIO = {
+#
+#     ("es", "en"): {
+#         "tengo hambre": "I'm hungry",
+#     },
+#
+#     ("en", "es"): {
+#         "I'm hungry": "tengo hambre",
+#     },
+#
+# }
+#
+# Los acentos se respetan.
+# Las mayúsculas/minúsculas se ignoran durante la búsqueda.
+# ============================================================
+
+TRADUCCIONES_USUARIO = {
 
     ("es", "en"): {
-
-        # Expresiones religiosas
-        "a dios": "goodbye",
-        "adiós": "goodbye",
-        "adios": "goodbye",
-        "por Dios": "for God's sake",
-        "por dios": "for God's sake",
-        "Dios mío": "my God",
-        "dios mío": "my God",
-        "Dios mio": "my God",
-        "dios mio": "my God",
-
-        "gracias a Dios": "thank God",
-        "gracias a dios": "thank God",
-        "bendito sea Dios": "blessed be God",
-        "bendito sea dios": "blessed be God",
-
-        "Dios te bendiga": "God bless you",
-        "dios te bendiga": "God bless you",
-        "Dios los bendiga": "God bless you all",
-        "dios los bendiga": "God bless you all",
-        "que Dios te bendiga": "may God bless you",
-        "que dios te bendiga": "may God bless you",
-        "que Dios los bendiga": "may God bless you all",
-        "que dios los bendiga": "may God bless you all",
-
-        "si Dios quiere": "God willing",
-        "si dios quiere": "God willing",
-        "Dios mediante": "God willing",
-        "dios mediante": "God willing",
-        "con la ayuda de Dios": "with God's help",
-        "con la ayuda de dios": "with God's help",
-
-        "Dios sabe": "God knows",
-        "dios sabe": "God knows",
-        "solo Dios sabe": "only God knows",
-        "solo dios sabe": "only God knows",
-        "Dios lo sabe": "God knows",
-        "dios lo sabe": "God knows",
-        "Dios sabrá": "God will know",
-        "dios sabra": "God will know",
-
-        "Dios mío, ayúdame": "My God, help me",
-        "dios mío ayúdame": "My God, help me",
-        "Dios mio ayudame": "My God, help me",
-        "dios mio ayudame": "My God, help me",
-        "Dios mío, qué horror": "My God, how awful",
-        "dios mío que horror": "My God, how awful",
-        "Dios mío, qué pasa": "My God, what's happening",
-        "dios mio que pasa": "My God, what's happening",
-
-        "por el amor de Dios": "for God's sake",
-        "por el amor de dios": "for God's sake",
-        "por Dios, para": "for God's sake, stop",
-        "por dios, para": "for God's sake, stop",
-
-        "alabado sea Dios": "praise God",
-        "alabado sea dios": "praise God",
-        "gloria a Dios": "glory to God",
-        "gloria a dios": "glory to God",
-        "gloria al Señor": "glory to the Lord",
-        "gloria al señor": "glory to the Lord",
-
-        "Señor, ayúdame": "Lord, help me",
-        "señor, ayúdame": "Lord, help me",
-        "Señor ayúdame": "Lord, help me",
-        "señor ayudame": "Lord, help me",
-        "Dios, ayúdame": "God, help me",
-        "dios ayudame": "God, help me",
-
-        "que Dios me ayude": "may God help me",
-        "que dios me ayude": "may God help me",
-        "que Dios nos ayude": "may God help us",
-        "que dios nos ayude": "may God help us",
-
-        "Dios tenga piedad": "may God have mercy",
-        "dios tenga piedad": "may God have mercy",
-        "Dios tenga misericordia": "may God have mercy",
-        "dios tenga misericordia": "may God have mercy",
-        "ten piedad, Dios mío": "have mercy, my God",
-        "ten piedad dios mío": "have mercy, my God",
-
-        "por voluntad de Dios": "by God's will",
-        "por voluntad de dios": "by God's will",
-        "la voluntad de Dios": "the will of God",
-        "la voluntad de dios": "the will of God",
-
-        "palabra de Dios": "word of God",
-        "palabra de dios": "word of God",
-        "amor de Dios": "love of God",
-        "amor de dios": "love of God",
-        "gracia de Dios": "grace of God",
-        "gracia de dios": "grace of God",
-
-        "fe en Dios": "faith in God",
-        "fe en dios": "faith in God",
-        "creo en Dios": "I believe in God",
-        "creo en dios": "I believe in God",
-        "confío en Dios": "I trust in God",
-        "confio en dios": "I trust in God",
-
-        "Dios está conmigo": "God is with me",
-        "dios esta conmigo": "God is with me",
-        "Dios está contigo": "God is with you",
-        "dios esta contigo": "God is with you",
-        "Dios está con nosotros": "God is with us",
-        "dios esta con nosotros": "God is with us",
-
-        "que Dios te acompañe": "may God be with you",
-        "que dios te acompañe": "may God be with you",
-        "que Dios te proteja": "may God protect you",
-        "que dios te proteja": "may God protect you",
-        "que Dios nos proteja": "may God protect us",
-        "que dios nos proteja": "may God protect us",
-
-        "descansa en paz": "rest in peace",
-        "que descanse en paz": "may he rest in peace",
-        "en paz descanse": "may he rest in peace",
-
-        "amén": "amen",
-        "amen": "amen",
-        "aleluya": "hallelujah",
-
-        "Jesús": "Jesus",
-        "jesus": "Jesus",
-        "Jesucristo": "Jesus Christ",
-        "jesucristo": "Jesus Christ",
-        "Cristo": "Christ",
-        "cristo": "Christ",
-        "Señor": "Lord",
-        "señor": "Lord",
-
-        "en el nombre de Dios": "in the name of God",
-        "en el nombre de dios": "in the name of God",
-        "en el nombre de Jesús": "in the name of Jesus",
-        "en el nombre de jesus": "in the name of Jesus",
-
-        "gracias Señor": "thank you, Lord",
-        "gracias señor": "thank you, Lord",
-        "Señor ten piedad": "Lord have mercy",
-        "señor ten piedad": "Lord have mercy",
-        "que Dios te guarde": "may God keep you",
-        "que dios te guarde": "may God keep you",
-
-        "es una bendición": "it's a blessing",
-        "es una bendicion": "it's a blessing",
-        "qué bendición": "what a blessing",
-        "que bendicion": "what a blessing",
-        "milagro de Dios": "miracle of God",
-        "milagro de dios": "miracle of God",
-        "es un milagro": "it's a miracle",
-
-        "Dios es bueno": "God is good",
-        "dios es bueno": "God is good",
-        "Dios es grande": "God is great",
-        "dios es grande": "God is great",
-        "Dios es amor": "God is love",
-        "dios es amor": "God is love",
-
-        "si Dios lo permite": "if God allows it",
-        "si dios lo permite": "if God allows it",
-        "que Dios quiera": "God willing",
-        "con Dios": "with God",
-        "junto a Dios": "with God",
-        "cerca de Dios": "close to God",
-
-
-        # Saludos y despedidas
-        "buenos días": "good morning",
-        "buen día": "good morning",
-        "buen dia": "good day",
-        "buenas tardes": "good afternoon",
-        "buenas noches": "good evening",
-        "hasta luego": "see you later",
-        "hasta pronto": "see you soon",
-        "nos vemos": "see you",
-        "qué tal": "how are you",
-        "que tal": "how are you",
-        "hola": "hello",
-        "hola a todos": "hello everyone",
-        "hola amigo": "hello friend",
-        "hola amiga": "hello friend",
-        "buenos dias": "good morning",
-        "cómo estás": "how are you",
-        "como estas": "like this",
-        "cómo estás?": "how are you?",
-        "como estas?": "how are you?",
-        "cómo te va": "how are you doing",
-        "como te va": "how are you doing",
-
-        # Conversación
-        "¿cómo estás?": "how are you?",
-        "¿cómo estás": "how are you?",
-        "mucho gusto": "nice to meet you",
-        "encantado de conocerte": "nice to meet you",
-        "encantada de conocerte": "nice to meet you",
-        "qué haces?": "what are you doing?",
-        "que haces?": "what are you doing?",
-        "qué pasa": "what's going on",
-        "que pasa": "what's going on",
-        "qué pasa?": "what's going on?",
-        "que pasa?": "what's going on?",
-        "qué ocurre": "what's happening",
-        "que ocurre": "what's happening",
-        "qué quieres": "what do you want",
-        "que quieres": "what do you want",
-        "qué quieres?": "what do you want?",
-        "qué necesitas": "what do you need",
-        "que necesitas": "what do you need",
-        "qué dices": "what are you saying",
-        "que dices": "what are you saying",
-        "qué estás haciendo": "what are you doing",
-        "que estas haciendo": "what are you doing",
-        "dónde estás": "where are you",
-        "donde estas": "where are you",
-        "dónde estás?": "where are you?",
-        "donde estas?": "where are you?",
-        "dónde vas": "where are you going",
-        "donde vas": "where are you going",
-        "dónde vives": "where do you live",
-        "donde vives": "where do you live",
-
-        # Agradecimientos
-        "gracias": "thank you",
-        "muchas gracias": "thank you very much",
-        "de nada": "you're welcome",
-        "no hay de qué": "you're welcome",
-        "no hay de que": "you're welcome",
-        "mil gracias": "thanks a lot",
-        "gracias por todo": "thank you for everything",
-        "gracias por tu ayuda": "thank you for your help",
-        "gracias por ayudarme": "thank you for helping me",
-        "no te preocupes": "don't worry",
-
-        # Cortesía
-        "por favor": "please",
-        "perdón": "sorry",
-        "perdon": "sorry",
-        "lo siento": "I'm sorry",
-        "disculpa": "excuse me",
-        "disculpe": "excuse me",
-        "con permiso": "excuse me",
-        "claro que sí": "of course",
-        "claro que si": "of course",
-        "no pasa nada": "it's okay",
-        "sin problema": "no problem",
-        "ningún problema": "no problem",
-        "ningun problema": "no problem",
-
-        # Afirmación / negación
-        "si": "yes",
-        "no": "no",
-        "claro": "of course",
-        "por supuesto": "of course",
-        "vale": "okay",
-        "de acuerdo": "okay",
-        "está bien": "it's okay",
-        "esta bien": "it's okay",
-        "tal vez": "maybe",
-        "quizás": "maybe",
-        "quizas": "maybe",
-        "no lo sé": "I don't know",
-        "no lo se": "I don't know",
-        "no sé": "I don't know",
-        "no se": "I don't know",
-        "no entiendo": "I don't understand",
-        "entiendo": "I understand",
-        "ya entiendo": "I understand now",
-        "lo entiendo": "I understand",
-        "no puedo": "I can't",
-        "puedo": "I can",
-        "no quiero": "I don't want to",
-        "quiero": "I want to",
-        "no puedo hacerlo": "I can't do it",
-        "puedo hacerlo": "I can do it",
-
-        # Expresiones frecuentes
-        "te quiero": "I love you",
-        "te amo": "I love you",
-        "te extraño": "I miss you",
-        "te echo de menos": "I miss you",
-        "tengo hambre": "I'm hungry",
-        "tengo sed": "I'm thirsty",
-        "tengo sueño": "I'm sleepy",
-        "tengo miedo": "I'm scared",
-        "¿qué pasa?": "what's going on?",
-        "¿qué haces?": "what are you doing?",
-        "que haces": "what are you doing?",
-        "¿dónde estás?": "where are you?",
-        "donde estás": "where you are",
-        "¿qué quieres?": "what do you want?",
-        "te quiero mucho": "I love you very much",
-        "me gustas": "I like you",
-        "me gusta": "I like it",
-        "no me gusta": "I don't like it",
-        "me encanta": "I love it",
-        "odio esto": "I hate this",
-        "estoy feliz": "I'm happy",
-        "estoy triste": "I'm sad",
-        "estoy cansado": "I'm tired",
-        "estoy cansada": "I'm tired",
-        "estoy aburrido": "I'm bored",
-        "estoy aburrida": "I'm bored",
-        "estoy ocupado": "I'm busy",
-        "estoy ocupada": "I'm busy",
-        "estoy preocupado": "I'm worried",
-        "estoy preocupada": "I'm worried",
-        "estoy enfadado": "I'm angry",
-        "estoy enfadada": "I'm angry",
-
-        # Tiempo
-        "ahora": "now",
-        "hoy": "today",
-        "mañana": "tomorrow",
-        "ayer": "yesterday",
-        "esta mañana": "this morning",
-        "esta tarde": "this afternoon",
-        "esta noche": "tonight",
-        "ahora mismo": "right now",
-        "esta semana": "this week",
-        "la semana que viene": "next week",
-        "la semana pasada": "last week",
-        "más tarde": "later",
-        "mas tarde": "later",
-        "después": "later",
-        "despues": "later",
-        "antes": "before",
-        "pronto": "soon",
-
-        # Personas
-        "mi amigo": "my friend",
-        "mi amiga": "my friend",
-        "mi hermano": "my brother",
-        "mi hermana": "my sister",
-        "mi padre": "my father",
-        "mi madre": "my mother",
-        "mi mamá": "my mom",
-        "mi mama": "my mom",
-        "mi papá": "my dad",
-        "mi papa": "my dad",
-        "mi hijo": "my son",
-        "mi hija": "my daughter",
-        "mi novio": "my boyfriend",
-        "mi novia": "my girlfriend",
-        "mi marido": "my husband",
-        "mi esposa": "my wife",
-
-        # TRABAJO
-        "estoy trabajando": "I'm working",
-        "estoy en el trabajo": "I'm at work",
-        "tengo trabajo": "I have work",
-        "no tengo trabajo": "I don't have a job",
-        "terminé de trabajar": "I finished work",
-        "termine de trabajar": "I finished work",
-
-
-
-        # Lugares / objetos comunes
-        "mi casa": "my house",
-        "mi coche": "my car",
-        "mi teléfono": "my phone",
-        "mi movil": "my phone",
-        "mi móvil": "my phone",
-        "mi habitación":"my room",
-        "mi habitacion":"my room",
-        "mi abitacion": "my room",
-        "ordenador": "computer",
-        "computadora": "computer",
-        "aleatorio": "random",
-        "teléfono móvil": "mobile phone",
-        "telefono movil": "mobile phone",
-
-
-        # DESPLAZAMIENTO
-        "voy": "I'm going",
-        "voy a casa": "I'm going home",
-        "me voy a casa": "I'm going home",
-        "voy al trabajo": "I'm going to work",
-        "voy a trabajar": "I'm going to work",
-        "voy a dormir": "I'm going to sleep",
-        "me voy a dormir": "I'm going to bed",
-        "voy a comer": "I'm going to eat",
-        "voy a salir": "I'm going out",
-        "estoy saliendo": "I'm leaving",
-        "estoy de camino": "I'm on my way",
-        "ya voy": "I'm coming",
-        "ahora voy": "I'm coming now",
-        "ya voy para allá": "I'm on my way",
-        "ya voy para alla": "I'm on my way",
-        "voy para casa": "I'm going home",
-        "estoy llegando": "I'm arriving",
-        "ya llegué": "I've arrived",
-        "ya llegue": "I've arrived",
-
-
-
-        # Frases frecuentes
-        "te llamo luego": "I'll call you later",
-        "hablamos luego": "talk to you later",
-        "nos vemos mañana": "see you tomorrow",
-        "hasta mañana": "see you tomorrow",
-        "nos vemos luego": "see you later",
-        "me voy": "I'm leaving",
-        "ya me voy": "I'm leaving now",
-        "me tengo que ir": "I have to go",
-        "tengo que irme": "I have to go",
-        "tengo que ir": "I have to go",
-        "voy a irme": "I'm going to leave",
-        "me marcho": "I'm leaving",
-        "hasta la próxima": "see you next time",
-        "hasta la proxima": "see you next time",
-        "buen viaje": "have a good trip",
-        "que tengas un buen día": "have a good day",
-        "que tengas un buen dia": "have a good day",
-        "tengo frío": "I'm cold",
-        "tengo frio": "I'm cold",
-        "tengo calor": "I'm hot",
-        "tengo prisa": "I'm in a hurry",
-        "tengo tiempo": "I have time",
-        "no tengo tiempo": "I don't have time",
-        "necesito dormir": "I need to sleep",
-        "necesito comer": "I need to eat",
-        "necesito irme": "I need to leave",
-        "ayúdame": "help me",
-        "ayudame": "help me",
-        "necesito ayuda": "I need help",
-        "ayuda": "help",
-        "qué ha pasado": "what happened",
-        "que ha pasado": "what happened",
-        "no funciona": "it doesn't work",
-        "funciona": "it works",
-        "hay un problema": "there is a problem",
-        "tenemos un problema": "we have a problem",
-        "no funciona bien": "it doesn't work properly",
-        "qué quieres decir": "what do you mean",
-        "que quieres decir": "what do you mean",
-        "qué significa": "what does it mean",
-        "que significa": "what does it mean",
-        "cómo se dice": "how do you say",
-        "como se dice": "how do you say",
-        "cómo se dice en inglés": "how do you say it in English",
-        "como se dice en ingles": "how do you say it in English",
-        "dame un momento": "give me a moment",
-        "espera un momento": "wait a moment",
-        "espera": "wait",
-        "un momento": "one moment",
-        "ven aquí": "come here",
-        "ven aqui": "come here",
-        "mira esto": "look at this",
-        "escúchame": "listen to me",
-        "escuchame": "listen to me",
-        "mírame": "look at me",
-        "mirame": "look at me",
-        "déjame en paz": "leave me alone",
-        "dejame en paz": "leave me alone",
-        "ten cuidado": "be careful",
-        "todo está bien": "everything is fine",
-        "todo esta bien": "everything is fine",
-        "está todo bien": "everything is okay",
-        "esta todo bien": "everything is okay",
-        "qué buena idea": "what a good idea",
-        "que buena idea": "what a good idea",
-        "no tengo ni idea": "I have no idea",
-        "eso es verdad": "that's true",
-        "es verdad": "it's true",
-        "tienes razón": "you're right",
-        "tienes razon": "you're right",
-        "tienes toda la razón": "you're absolutely right",
-        "tienes toda la razon": "you're absolutely right",
-        "no tienes razón": "you're wrong",
-        "no tienes razon": "you're wrong",
-        "dónde está el hotel": "where is the hotel",
-        "donde esta el hotel": "where is the hotel",
-        "dónde está el aeropuerto": "where is the airport",
-        "donde esta el aeropuerto": "where is the airport",
-        "quiero ir al aeropuerto": "I want to go to the airport",
-        "estoy perdido": "I'm lost",
-        "estoy perdida": "I'm lost",
-        "¿cuánto cuesta?": "how much does it cost?",
-        "cuánto cuesta": "how much does it cost",
-        "cuanto cuesta": "how much does it cost",
-
     },
-
-    # ========================================================
-    # INGLÉS → ESPAÑOL
-    # ========================================================
 
     ("en", "es"): {
-
-        # ====================================================
-        # EXPRESIONES RELIGIOSAS
-        # ====================================================
-
-        "goodbye": "adiós",
-        "bye": "adiós",
-        "farewell": "adiós",
-
-        "for God's sake": "por Dios",
-        "for gods sake": "por Dios",
-        "my God": "Dios mío",
-        "my god": "Dios mío",
-
-        "thank God": "gracias a Dios",
-        "blessed be God": "bendito sea Dios",
-        "God bless you": "Dios te bendiga",
-        "God bless you all": "Dios los bendiga",
-        "may God bless you": "que Dios te bendiga",
-        "may God bless you all": "que Dios los bendiga",
-
-        "God willing": "si Dios quiere",
-        "if God allows it": "si Dios lo permite",
-        "with God's help": "con la ayuda de Dios",
-
-        "God knows": "Dios sabe",
-        "only God knows": "solo Dios sabe",
-        "God will know": "Dios sabrá",
-
-        "My God, help me": "Dios mío, ayúdame",
-        "my God, help me": "Dios mío, ayúdame",
-        "My God, how awful": "Dios mío, qué horror",
-        "my God, how awful": "Dios mío, qué horror",
-        "My God, what's happening": "Dios mío, qué está pasando",
-        "my God, what's happening": "Dios mío, qué está pasando",
-
-        "praise God": "alabado sea Dios",
-        "glory to God": "gloria a Dios",
-        "glory to the Lord": "gloria al Señor",
-        "Lord, help me": "Señor, ayúdame",
-        "God, help me": "Dios, ayúdame",
-        "may God help me": "que Dios me ayude",
-        "may God help us": "que Dios nos ayude",
-        "may God have mercy": "que Dios tenga piedad",
-        "have mercy, my God": "ten piedad, Dios mío",
-        "by God's will": "por voluntad de Dios",
-        "the will of God": "la voluntad de Dios",
-
-        "word of God": "palabra de Dios",
-        "love of God": "amor de Dios",
-        "grace of God": "gracia de Dios",
-
-        "faith in God": "fe en Dios",
-        "I believe in God": "creo en Dios",
-        "I trust in God": "confío en Dios",
-
-        "God is with me": "Dios está conmigo",
-        "God is with you": "Dios está contigo",
-        "God is with us": "Dios está con nosotros",
-
-        "may God be with you": "que Dios te acompañe",
-        "may God protect you": "que Dios te proteja",
-        "may God protect us": "que Dios nos proteja",
-        "may God keep you": "que Dios te guarde",
-
-        "rest in peace": "descansa en paz",
-        "may he rest in peace": "que descanse en paz",
-        "may she rest in peace": "que descanse en paz",
-
-        "amen": "amén",
-        "hallelujah": "aleluya",
-
-        "Jesus": "Jesús",
-        "Jesus Christ": "Jesucristo",
-        "Christ": "Cristo",
-        "Lord": "Señor",
-
-        "in the name of God": "en el nombre de Dios",
-        "in the name of Jesus": "en el nombre de Jesús",
-
-        "thank you, Lord": "gracias, Señor",
-        "Lord have mercy": "Señor, ten piedad",
-
-        "it's a blessing": "es una bendición",
-        "what a blessing": "qué bendición",
-        "miracle of God": "milagro de Dios",
-        "it's a miracle": "es un milagro",
-
-        "God is good": "Dios es bueno",
-        "God is great": "Dios es grande",
-        "God is love": "Dios es amor",
-
-        # ====================================================
-        # SALUDOS
-        # ====================================================
-
-        "hello": "hola",
-        "hi": "hola",
-        "hello everyone": "hola a todos",
-        "hello friend": "hola amigo",
-        "good morning": "buenos días",
-        "good day": "buen día",
-        "good afternoon": "buenas tardes",
-        "good evening": "buenas tardes",
-        "good night": "buenas noches",
-
-        "how are you": "¿cómo estás?",
-        "how are you?": "¿cómo estás?",
-        "how are you doing": "¿cómo te va?",
-        "how are you doing?": "¿cómo te va?",
-
-        # ====================================================
-        # DESPEDIDAS
-        # ====================================================
-
-        "see you": "nos vemos",
-        "see you later": "hasta luego",
-        "see you soon": "hasta pronto",
-        "see you tomorrow": "nos vemos mañana",
-        "see you next time": "hasta la próxima",
-        "I'm leaving": "me voy",
-        "I'm leaving now": "ya me voy",
-        "I have to go": "me tengo que ir",
-        "I need to leave": "necesito irme",
-        "I'm going to leave": "voy a irme",
-        "I'm going home": "me voy a casa",
-        "I'm going out": "voy a salir",
-
-        # ====================================================
-        # AGRADECIMIENTOS
-        # ====================================================
-
-        "thank you": "gracias",
-        "thanks": "gracias",
-        "thank you very much": "muchas gracias",
-        "thanks a lot": "mil gracias",
-        "thank you for everything": "gracias por todo",
-        "thank you for your help": "gracias por tu ayuda",
-        "thank you for helping me": "gracias por ayudarme",
-
-        "you're welcome": "de nada",
-        "no problem": "no hay problema",
-        "don't worry": "no te preocupes",
-
-        # ====================================================
-        # CORTESÍA
-        # ====================================================
-
-        "please": "por favor",
-        "sorry": "lo siento",
-        "excuse me": "disculpa",
-        "of course": "por supuesto",
-        "yes": "sí",
-        "no": "no",
-        "okay": "vale",
-        "it's okay": "está bien",
-        "that's okay": "está bien",
-        "no worries": "no te preocupes",
-
-        # ====================================================
-        # CONVERSACIÓN
-        # ====================================================
-
-        "what are you doing": "¿qué haces?",
-        "what are you doing?": "¿qué haces?",
-        "what's going on": "¿qué pasa?",
-        "what's going on?": "¿qué pasa?",
-        "what's happening": "¿qué está pasando?",
-        "what's happening?": "¿qué está pasando?",
-
-        "what do you want": "¿qué quieres?",
-        "what do you want?": "¿qué quieres?",
-        "what do you need": "¿qué necesitas?",
-        "what do you need?": "¿qué necesitas?",
-
-        "what are you saying": "¿qué estás diciendo?",
-        "what are you saying?": "¿qué estás diciendo?",
-
-        "where are you": "¿dónde estás?",
-        "where are you?": "¿dónde estás?",
-        "where are you going": "¿adónde vas?",
-        "where are you going?": "¿adónde vas?",
-
-        "where do you live": "¿dónde vives?",
-        "where do you live?": "¿dónde vives?",
-
-        "what do you mean": "¿qué quieres decir?",
-        "what do you mean?": "¿qué quieres decir?",
-        "what does it mean": "¿qué significa?",
-        "what does it mean?": "¿qué significa?",
-
-        # ====================================================
-        # RESPUESTAS
-        # ====================================================
-
-        "maybe": "quizás",
-        "I don't know": "no lo sé",
-        "I don't understand": "no entiendo",
-        "I understand": "entiendo",
-        "I understand now": "ya entiendo",
-        "I can": "puedo",
-        "I can't": "no puedo",
-        "I want to": "quiero",
-        "I don't want to": "no quiero",
-        "I can do it": "puedo hacerlo",
-        "I can't do it": "no puedo hacerlo",
-
-        # ====================================================
-        # SENTIMIENTOS
-        # ====================================================
-
-        "I love you": "te quiero",
-        "I love you very much": "te quiero mucho",
-        "I miss you": "te extraño",
-        "I like you": "me gustas",
-        "I like it": "me gusta",
-        "I don't like it": "no me gusta",
-        "I love it": "me encanta",
-        "I hate this": "odio esto",
-
-        "I'm happy": "estoy feliz",
-        "I'm sad": "estoy triste",
-        "I'm tired": "estoy cansado",
-        "I'm bored": "estoy aburrido",
-        "I'm busy": "estoy ocupado",
-        "I'm worried": "estoy preocupado",
-        "I'm scared": "tengo miedo",
-        "I'm angry": "estoy enfadado",
-
-        # ====================================================
-        # NECESIDADES
-        # ====================================================
-
-        "I'm hungry": "tengo hambre",
-        "I'm thirsty": "tengo sed",
-        "I'm sleepy": "tengo sueño",
-        "I'm cold": "tengo frío",
-        "I'm hot": "tengo calor",
-        "I'm in a hurry": "tengo prisa",
-        "I have time": "tengo tiempo",
-        "I don't have time": "no tengo tiempo",
-
-        "I need help": "necesito ayuda",
-        "I need to sleep": "necesito dormir",
-        "I need to eat": "necesito comer",
-
-        # ====================================================
-        # TIEMPO
-        # ====================================================
-
-        "now": "ahora",
-        "right now": "ahora mismo",
-        "today": "hoy",
-        "tomorrow": "mañana",
-        "yesterday": "ayer",
-        "this morning": "esta mañana",
-        "this afternoon": "esta tarde",
-        "tonight": "esta noche",
-        "this week": "esta semana",
-        "next week": "la semana que viene",
-        "last week": "la semana pasada",
-        "later": "más tarde",
-        "before": "antes",
-        "soon": "pronto",
-
-        # ====================================================
-        # FAMILIA
-        # ====================================================
-
-        "my mother": "mi madre",
-        "my mom": "mi mamá",
-        "my father": "mi padre",
-        "my dad": "mi papá",
-        "my brother": "mi hermano",
-        "my sister": "mi hermana",
-        "my son": "mi hijo",
-        "my daughter": "mi hija",
-        "my friend": "mi amigo",
-        "my boyfriend": "mi novio",
-        "my girlfriend": "mi novia",
-        "my husband": "mi marido",
-        "my wife": "mi esposa",
-
-        # ====================================================
-        # CASA / OBJETOS
-        # ====================================================
-
-        "my house": "mi casa",
-        "at home": "en casa",
-        "I'm at home": "estoy en casa",
-        "my room": "mi habitación",
-        "my car": "mi coche",
-        "my phone": "mi teléfono",
-        "computer": "ordenador",
-        "mobile phone": "teléfono móvil",
-        "random": "aleatorio",
-
-        # ====================================================
-        # DESPLAZAMIENTO
-        # ====================================================
-
-        "I'm going": "voy",
-        "I'm going to work": "voy a trabajar",
-        "I'm going to sleep": "voy a dormir",
-        "I'm going to bed": "me voy a dormir",
-        "I'm going to eat": "voy a comer",
-        "I'm on my way": "estoy de camino",
-        "I'm coming": "ya voy",
-        "I'm coming now": "ahora voy",
-        "I'm arriving": "estoy llegando",
-        "I've arrived": "ya llegué",
-
-        # ====================================================
-        # TRABAJO
-        # ====================================================
-
-        "I'm working": "estoy trabajando",
-        "I'm at work": "estoy en el trabajo",
-        "I have work": "tengo trabajo",
-        "I don't have a job": "no tengo trabajo",
-        "I finished work": "terminé de trabajar",
-
-        # ====================================================
-        # COMIDA
-        # ====================================================
-
-        "I want to eat": "quiero comer",
-        "let's eat": "vamos a comer",
-        "let's have dinner": "vamos a cenar",
-        "let's have breakfast": "vamos a desayunar",
-        "what are we eating": "¿qué comemos?",
-        "what are we eating?": "¿qué comemos?",
-        "it's delicious": "está delicioso",
-        "it's very good": "está muy bueno",
-
-        # ====================================================
-        # AYUDA / PROBLEMAS
-        # ====================================================
-
-        "help": "ayuda",
-        "help me": "ayúdame",
-        "what happened": "¿qué ha pasado?",
-        "it doesn't work": "no funciona",
-        "it works": "funciona",
-        "there is a problem": "hay un problema",
-        "we have a problem": "tenemos un problema",
-        "it doesn't work properly": "no funciona bien",
-
-        # ====================================================
-        # FRASES FRECUENTES
-        # ====================================================
-
-        "give me a moment": "dame un momento",
-        "wait a moment": "espera un momento",
-        "wait": "espera",
-        "one moment": "un momento",
-        "come here": "ven aquí",
-        "look at this": "mira esto",
-        "listen to me": "escúchame",
-        "look at me": "mírame",
-        "leave me alone": "déjame en paz",
-        "be careful": "ten cuidado",
-
-        "everything is fine": "todo está bien",
-        "everything is okay": "está todo bien",
-        "what a good idea": "qué buena idea",
-        "I have no idea": "no tengo ni idea",
-        "that's true": "eso es verdad",
-        "it's true": "es verdad",
-        "you're right": "tienes razón",
-        "you're absolutely right": "tienes toda la razón",
-        "you're wrong": "estás equivocado",
-
-        # ====================================================
-        # LLAMADAS / COMUNICACIÓN
-        # ====================================================
-
-        "I'll call you later": "te llamo luego",
-        "talk to you later": "hablamos luego",
-
-        # ====================================================
-        # VIAJES
-        # ====================================================
-
-        "have a good trip": "buen viaje",
-        "where is the hotel": "¿dónde está el hotel?",
-        "where is the airport": "¿dónde está el aeropuerto?",
-        "I want to go to the airport": "quiero ir al aeropuerto",
-        "I'm lost": "estoy perdido",
-        "how much does it cost": "¿cuánto cuesta?",
-        "how much does it cost?": "¿cuánto cuesta?",
-
     },
+
 }
+'''
+
+    try:
+        RUTA_ARCHIVO_USUARIO.write_text(
+            contenido,
+            encoding="utf-8"
+        )
+
+    except OSError as error:
+        print()
+        print(
+            "Aviso: no se pudo crear "
+            f"{NOMBRE_ARCHIVO_USUARIO}: {error}"
+        )
+
+
+def cargar_traducciones_usuario():
+    """
+    Carga de forma segura TRADUCCIONES_USUARIO.
+
+    NO ejecuta el archivo.
+
+    Utiliza ast.literal_eval() para leer solamente
+    estructuras de datos de Python.
+    """
+
+    crear_archivo_usuario()
+
+    if not RUTA_ARCHIVO_USUARIO.exists():
+        return {}
+
+    try:
+
+        contenido = RUTA_ARCHIVO_USUARIO.read_text(
+            encoding="utf-8"
+        )
+
+        arbol = ast.parse(
+            contenido,
+            filename=str(RUTA_ARCHIVO_USUARIO)
+        )
+
+        valor = None
+
+        for nodo in arbol.body:
+
+            if not isinstance(
+                nodo,
+                ast.Assign
+            ):
+                continue
+
+            for objetivo in nodo.targets:
+
+                if (
+                    isinstance(
+                        objetivo,
+                        ast.Name
+                    )
+                    and objetivo.id
+                    == "TRADUCCIONES_USUARIO"
+                ):
+
+                    valor = ast.literal_eval(
+                        nodo.value
+                    )
+
+                    break
+
+            if valor is not None:
+                break
+
+        if not isinstance(valor, dict):
+            return {}
+
+        resultado = {}
+
+        for clave, diccionario in valor.items():
+
+            if not (
+                isinstance(clave, tuple)
+                and len(clave) == 2
+            ):
+                continue
+
+            idioma_origen = clave[0]
+            idioma_destino = clave[1]
+
+            if not (
+                isinstance(
+                    idioma_origen,
+                    str
+                )
+                and isinstance(
+                    idioma_destino,
+                    str
+                )
+            ):
+                continue
+
+            if not isinstance(
+                diccionario,
+                dict
+            ):
+                continue
+
+            resultado[
+                (
+                    idioma_origen,
+                    idioma_destino
+                )
+            ] = {}
+
+            for origen, destino in diccionario.items():
+
+                if not (
+                    isinstance(origen, str)
+                    and isinstance(destino, str)
+                ):
+                    continue
+
+                resultado[
+                    (
+                        idioma_origen,
+                        idioma_destino
+                    )
+                ][origen] = destino
+
+        return resultado
+
+    except (
+        SyntaxError,
+        ValueError,
+        TypeError,
+        OSError
+    ) as error:
+
+        print()
+        print(
+            "Aviso: no se pudo leer "
+            f"{NOMBRE_ARCHIVO_USUARIO}."
+        )
+        print(error)
+        print()
+
+        return {}
+
+
 # ============================================================
-# LIMPIAR TERMINAL
+# CARGAR TRADUCCIONES PERSONALIZADAS
 # ============================================================
 
-def limpiar_terminal():
+TRADUCCIONES_USUARIO = (
+    cargar_traducciones_usuario()
+)
 
-    os.system(
-        "cls" if WINDOWS else "clear"
+
+# ============================================================
+# GUARDAR DICCIONARIO PERSONALIZADO
+# ============================================================
+
+def guardar_traducciones_usuario(
+    diccionario
+):
+    """
+    Guarda el diccionario personalizado en:
+
+        traducciones_usuario.py
+
+    Utiliza un archivo temporal y os.replace()
+    para reducir el riesgo de corrupción.
+    """
+
+    contenido = (
+        "# ============================================================\n"
+        "# TRADUCCIONES PERSONALIZADAS\n"
+        "# Archivo gestionado por TraductorSimple.py\n"
+        "# También puede editarse manualmente.\n"
+        "# ============================================================\n\n"
+        "TRADUCCIONES_USUARIO = "
+        + repr(diccionario)
+        + "\n"
+    )
+
+    ruta_temporal = None
+
+    try:
+
+        directorio = RUTA_ARCHIVO_USUARIO.parent
+
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=directorio,
+            prefix="traducciones_usuario_",
+            suffix=".tmp",
+            delete=False
+        ) as archivo:
+
+            archivo.write(contenido)
+
+            archivo.flush()
+
+            ruta_temporal = Path(
+                archivo.name
+            )
+
+        os.replace(
+            ruta_temporal,
+            RUTA_ARCHIVO_USUARIO
+        )
+
+        return True
+
+    except OSError as error:
+
+        if (
+            ruta_temporal is not None
+            and ruta_temporal.exists()
+        ):
+
+            try:
+                ruta_temporal.unlink()
+            except OSError:
+                pass
+
+        print()
+        print(
+            "Error al guardar "
+            f"{NOMBRE_ARCHIVO_USUARIO}:"
+        )
+        print(error)
+        print()
+
+        return False
+
+
+# ============================================================
+# NORMALIZACIÓN
+# ============================================================
+
+def normalizar(texto):
+    """
+    Limpia espacios innecesarios.
+
+    NO elimina:
+        - acentos
+        - signos
+        - palabras
+
+    Solamente:
+        - convierte a texto
+        - elimina espacios exteriores
+        - convierte varios espacios en uno
+    """
+
+    if texto is None:
+        return ""
+
+    texto = str(texto).strip()
+
+    texto = re.sub(
+        r"\s+",
+        " ",
+        texto
+    )
+
+    return texto
+
+
+def normalizar_busqueda(texto):
+    """
+    Normalización para búsquedas.
+
+    Ignora:
+        - mayúsculas/minúsculas
+
+    Conserva:
+        - acentos
+        - signos
+    """
+
+    return normalizar(texto).casefold()
+
+
+# ============================================================
+# NORMALIZAR FRASE PARA COMPARACIÓN
+# ============================================================
+
+def normalizar_frase_para_indice(texto):
+    """
+    Normaliza una frase para utilizarla en los índices
+    de frases.
+
+    La puntuación exterior se ignora para que:
+
+        tengo hambre
+
+    pueda coincidir dentro de:
+
+        tengo hambre!
+
+    """
+
+    texto = normalizar(texto)
+
+    if not texto:
+        return ""
+
+    texto = texto.casefold()
+
+    # Quitar solamente puntuación de los extremos.
+
+    texto = re.sub(
+        r'^[¿¡"\'(),.!?;:]+',
+        "",
+        texto
+    )
+
+    texto = re.sub(
+        r'[¿¡"\'(),.!?;:]+$',
+        "",
+        texto
+    )
+
+    return normalizar(texto)
+
+# ============================================================
+# LIMPIAR PANTALLA
+# ============================================================
+
+def limpiar_pantalla():
+    """
+    Limpia completamente la terminal.
+
+    Compatible con:
+
+        Windows
+        Linux
+        Termux
+    """
+
+    try:
+
+        comando = (
+            "cls"
+            if os.name == "nt"
+            else "clear"
+        )
+
+        os.system(comando)
+
+    except Exception:
+        pass
+
+
+# ============================================================
+# CREAR ÍNDICES
+# ============================================================
+
+def crear_indice(diccionario):
+    """
+    Crea un índice de búsqueda exacta.
+    """
+
+    indice = {}
+
+    for origen, destino in diccionario.items():
+
+        clave = normalizar_busqueda(
+            origen
+        )
+
+        if not clave:
+            continue
+
+        indice[clave] = destino
+
+    return indice
+
+
+# ============================================================
+# ÍNDICES BASE Y PERSONALIZADOS
+# ============================================================
+
+INDICES = {
+    idiomas: crear_indice(diccionario)
+    for idiomas, diccionario
+    in TRADUCCIONES.items()
+}
+
+
+INDICES_USUARIO = {
+    idiomas: crear_indice(diccionario)
+    for idiomas, diccionario
+    in TRADUCCIONES_USUARIO.items()
+}
+
+
+# ============================================================
+# RECONSTRUIR ÍNDICES
+# ============================================================
+
+def reconstruir_indices():
+    """
+    Reconstruye los índices personalizados.
+    """
+
+    global INDICES_USUARIO
+
+    INDICES_USUARIO = {
+        idiomas: crear_indice(diccionario)
+        for idiomas, diccionario
+        in TRADUCCIONES_USUARIO.items()
+    }
+
+
+# ============================================================
+# BÚSQUEDA EXACTA
+# ============================================================
+
+def buscar_exacta(
+    texto,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Busca una frase completa.
+
+    Personalizadas:
+        PRIORIDAD 1
+
+    Base:
+        PRIORIDAD 2
+    """
+
+    clave = (
+        idioma_origen,
+        idioma_destino
+    )
+
+    texto_normalizado = (
+        normalizar_busqueda(texto)
+    )
+
+    indice_usuario = (
+        INDICES_USUARIO.get(clave)
+    )
+
+    if indice_usuario:
+
+        resultado = indice_usuario.get(
+            texto_normalizado
+        )
+
+        if resultado is not None:
+            return resultado
+
+    indice = INDICES.get(clave)
+
+    if indice:
+
+        resultado = indice.get(
+            texto_normalizado
+        )
+
+        if resultado is not None:
+            return resultado
+
+    return None
+
+
+# ============================================================
+# DETECTAR PREGUNTAS
+# ============================================================
+
+def es_pregunta(texto):
+    """
+    Detecta preguntas tanto con:
+
+        ¿pregunta?
+
+    como:
+
+        pregunta?
+
+    También reconoce:
+
+        ¿pregunta
+
+    cuando empieza con el signo de apertura.
+
+    """
+
+    texto = normalizar(texto)
+
+    if not texto:
+        return False
+
+    return (
+        texto.startswith("¿")
+        or texto.endswith("?")
     )
 
 
 # ============================================================
-# CABECERA
+# QUITAR SIGNOS DE PREGUNTA EXTERIORES
 # ============================================================
 
-def mostrar_cabecera():
+def limpiar_marcadores_pregunta(texto):
+    """
+    Elimina únicamente los signos de pregunta
+    exteriores para facilitar el análisis.
 
-    limpiar_terminal()
+    Ejemplos:
 
-    print("=" * 60)
-    print("                    TRADUCTOR")
-    print("=" * 60)
-    print()
+        ¿dónde estás?
+        dónde estás?
 
-    print(
-        f"              {IDIOMAS[origen]} → {IDIOMAS[destino]}"
+    se convierten internamente en:
+
+        dónde estás
+
+    """
+
+    texto = normalizar(texto)
+
+    if texto.startswith("¿"):
+        texto = texto[1:].lstrip()
+
+    if texto.endswith("?"):
+        texto = texto[:-1].rstrip()
+
+    return texto
+
+
+# ============================================================
+# AÑADIR FORMATO DE PREGUNTA
+# ============================================================
+
+def formatear_pregunta(
+    traduccion,
+    idioma_destino
+):
+    """
+    Añade el formato de pregunta apropiado.
+
+    Español:
+        ¿ ... ?
+
+    Inglés:
+        ... ?
+
+    """
+
+    traduccion = normalizar(traduccion)
+
+    if not traduccion:
+        return traduccion
+
+    # Eliminar posibles signos existentes.
+
+    traduccion = re.sub(
+        r'^[¿¡]+',
+        "",
+        traduccion
     )
 
+    traduccion = re.sub(
+        r'[?]+$',
+        "",
+        traduccion
+    )
+
+    traduccion = traduccion.strip()
+
+    if idioma_destino == "es":
+        return f"¿{traduccion}?"
+
+    return f"{traduccion}?"
+
+
+# ============================================================
+# TRADUCCIÓN INTERNA DE UNA PARTE
+# ============================================================
+
+def traducir_parte(
+    texto,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Intenta traducir una parte mediante coincidencia exacta.
+    """
+
+    texto = normalizar(texto)
+
+    if not texto:
+        return None
+
+    resultado = buscar_exacta(
+        texto,
+        idioma_origen,
+        idioma_destino
+    )
+
+    if resultado is not None:
+        return resultado
+
+    return None
+
+
+# ============================================================
+# REGLAS ESPECIALES
+# ============================================================
+
+def reglas_especiales(
+    texto,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Reglas contextuales para preguntas frecuentes.
+
+    IMPORTANTE:
+
+    Se analiza tanto:
+
+        ¿pregunta?
+
+    como:
+
+        pregunta?
+
+    """
+
+    texto_limpio = normalizar(texto)
+
+    if not texto_limpio:
+        return None
+
+    pregunta = es_pregunta(
+        texto_limpio
+    )
+
+    texto_sin_pregunta = (
+        limpiar_marcadores_pregunta(
+            texto_limpio
+        )
+        if pregunta
+        else texto_limpio
+    )
+
+    texto_cf = (
+        texto_sin_pregunta.casefold()
+    )
+
+    # ========================================================
+    # ESPAÑOL -> INGLÉS
+    # ========================================================
+
+    if (
+        idioma_origen == "es"
+        and idioma_destino == "en"
+        and pregunta
+    ):
+
+        # ----------------------------------------------------
+        # CÓMO ESTÁS
+        # ----------------------------------------------------
+
+        if re.fullmatch(
+            r"cómo estás",
+            texto_cf
+        ):
+            return "how are you?"
+
+        # ----------------------------------------------------
+        # CÓMO ESTÁ ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"cómo está (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"how is "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # CÓMO ESTÁN ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"cómo están (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"how are "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # QUÉ QUIERES
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"qué quieres(?: (.+))?",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            if resto:
+
+                traduccion = traducir_parte(
+                    resto,
+                    "es",
+                    "en"
+                )
+
+                if traduccion is not None:
+
+                    return (
+                        f"what do you want "
+                        f"{traduccion}?"
+                    )
+
+            return "what do you want?"
+
+        # ----------------------------------------------------
+        # QUÉ NECESITAS
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"qué necesitas(?: (.+))?",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            if resto:
+
+                traduccion = traducir_parte(
+                    resto,
+                    "es",
+                    "en"
+                )
+
+                if traduccion is not None:
+
+                    return (
+                        f"what do you need "
+                        f"{traduccion}?"
+                    )
+
+            return "what do you need?"
+
+        # ----------------------------------------------------
+        # QUÉ ES
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"qué es (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"what is "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # QUÉ SON
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"qué son (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"what are "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # DÓNDE ESTÁ
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"dónde está (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"where is "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # DÓNDE ESTÁN
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"dónde están (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"where are "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # DÓNDE
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"dónde (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"where "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # CUÁNDO
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"cuándo (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"when "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # POR QUÉ
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"por qué (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"why "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # CANTIDADES
+        # ----------------------------------------------------
+
+        patrones_cantidad = [
+            (
+                r"cuánto (.+)",
+                "how much"
+            ),
+            (
+                r"cuánta (.+)",
+                "how much"
+            ),
+            (
+                r"cuántos (.+)",
+                "how many"
+            ),
+            (
+                r"cuántas (.+)",
+                "how many"
+            ),
+        ]
+
+        for patron, comienzo in (
+            patrones_cantidad
+        ):
+
+            coincidencia = re.fullmatch(
+                patron,
+                texto_cf
+            )
+
+            if not coincidencia:
+                continue
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"{comienzo} "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # QUÉ ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"qué (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "es",
+                "en"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"what "
+                    f"{traduccion}?"
+                )
+
+    # ========================================================
+    # INGLÉS -> ESPAÑOL
+    # ========================================================
+
+    if (
+        idioma_origen == "en"
+        and idioma_destino == "es"
+        and pregunta
+    ):
+
+        # ----------------------------------------------------
+        # HOW ARE YOU
+        # ----------------------------------------------------
+
+        if re.fullmatch(
+            r"how are you",
+            texto_cf
+        ):
+            return "¿cómo estás?"
+
+        # ----------------------------------------------------
+        # HOW IS ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"how is (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "en",
+                "es"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"¿cómo está "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # HOW ARE ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"how are (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "en",
+                "es"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"¿cómo están "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # WHAT IS ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"what is (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "en",
+                "es"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"¿qué es "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # WHAT ARE ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"what are (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "en",
+                "es"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"¿qué son "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # WHERE IS ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"where is (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "en",
+                "es"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"¿dónde está "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # WHERE ARE ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"where are (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "en",
+                "es"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"¿dónde están "
+                    f"{traduccion}?"
+                )
+
+        # ----------------------------------------------------
+        # WHAT DO YOU WANT
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"what do you want(?: (.+))?",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            if resto:
+
+                traduccion = traducir_parte(
+                    resto,
+                    "en",
+                    "es"
+                )
+
+                if traduccion is not None:
+
+                    return (
+                        f"¿qué quieres "
+                        f"{traduccion}?"
+                    )
+
+            return "¿qué quieres?"
+
+        # ----------------------------------------------------
+        # WHAT DO YOU NEED
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"what do you need(?: (.+))?",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            if resto:
+
+                traduccion = traducir_parte(
+                    resto,
+                    "en",
+                    "es"
+                )
+
+                if traduccion is not None:
+
+                    return (
+                        f"¿qué necesitas "
+                        f"{traduccion}?"
+                    )
+
+            return "¿qué necesitas?"
+
+        # ----------------------------------------------------
+        # WHAT ...
+        # ----------------------------------------------------
+
+        coincidencia = re.fullmatch(
+            r"what (.+)",
+            texto_cf
+        )
+
+        if coincidencia:
+
+            resto = coincidencia.group(1)
+
+            traduccion = traducir_parte(
+                resto,
+                "en",
+                "es"
+            )
+
+            if traduccion is not None:
+
+                return (
+                    f"¿qué "
+                    f"{traduccion}?"
+                )
+
+    return None
+
+
+# ============================================================
+# SEPARAR PUNTUACIÓN
+# ============================================================
+
+PATRON_PUNTUACION = re.compile(
+    r'^([¿¡"\'(),.!?;:]*)(.*?)([¿¡"\'(),.!?;:]*)$'
+)
+
+
+def separar_puntuacion(palabra):
+    """
+    Separa:
+
+        puntuación inicial
+        cuerpo
+        puntuación final
+    """
+
+    coincidencia = (
+        PATRON_PUNTUACION.match(
+            palabra
+        )
+    )
+
+    if not coincidencia:
+        return "", palabra, ""
+
+    return (
+        coincidencia.group(1),
+        coincidencia.group(2),
+        coincidencia.group(3)
+    )
+
+
+# ============================================================
+# TOKENIZACIÓN
+# ============================================================
+
+PATRON_TOKENS = re.compile(
+    r'\s+'
+    r'|[¿¡"\'(),.!?;:]+'
+    r'|[^\s¿¡"\'(),.!?;:]+'
+)
+
+
+def tokenizar_texto(texto):
+    """
+    Divide el texto conservando:
+
+        - palabras
+        - espacios
+        - puntuación
+    """
+
+    return PATRON_TOKENS.findall(
+        texto
+    )
+
+
+def es_token_palabra(token):
+    """
+    Determina si un token puede formar parte
+    de una frase traducible.
+    """
+
+    if not token:
+        return False
+
+    if token.isspace():
+        return False
+
+    if re.fullmatch(
+        r'[¿¡"\'(),.!?;:]+',
+        token
+    ):
+        return False
+
+    return True
+
+
+# ============================================================
+# CREAR ÍNDICE DE FRASES
+# ============================================================
+
+def crear_indice_frases(diccionario):
+    """
+    Crea un índice basado en tuplas de palabras.
+
+    Ejemplo:
+
+        "tengo hambre"
+
+    se convierte en:
+
+        ("tengo", "hambre")
+
+    """
+
+    indice = {}
+
+    for origen, destino in diccionario.items():
+
+        origen_normalizado = (
+            normalizar_frase_para_indice(
+                origen
+            )
+        )
+
+        if not origen_normalizado:
+            continue
+
+        tokens = origen_normalizado.split()
+
+        if not tokens:
+            continue
+
+        tokens_cf = tuple(
+            token.casefold()
+            for token in tokens
+        )
+
+        indice[tokens_cf] = {
+            "traduccion": destino,
+            "texto_original": origen,
+            "cantidad": len(tokens_cf)
+        }
+
+    return indice
+
+
+# ============================================================
+# ÍNDICES DE FRASES
+# ============================================================
+
+INDICES_FRASES = {}
+
+INDICES_FRASES_USUARIO = {}
+
+
+def reconstruir_indices_frases():
+    """
+    Reconstruye los índices de frases.
+    """
+
+    global INDICES_FRASES
+    global INDICES_FRASES_USUARIO
+
+    INDICES_FRASES = {
+        idiomas: crear_indice_frases(
+            diccionario
+        )
+        for idiomas, diccionario
+        in TRADUCCIONES.items()
+    }
+
+    INDICES_FRASES_USUARIO = {
+        idiomas: crear_indice_frases(
+            diccionario
+        )
+        for idiomas, diccionario
+        in TRADUCCIONES_USUARIO.items()
+    }
+
+
+reconstruir_indices_frases()
+
+
+# ============================================================
+# OBTENER PALABRAS CONSECUTIVAS
+# ============================================================
+
+def obtener_palabras_desde(
+    tokens,
+    posicion
+):
+    """
+    Obtiene palabras consecutivas a partir de una posición.
+
+    No atraviesa signos de puntuación.
+
+    Devuelve:
+
+        palabras
+        índices_consumidos
+    """
+
+    palabras = []
+
+    indices = []
+
+    indice = posicion
+
+    while indice < len(tokens):
+
+        token = tokens[indice]
+
+        if not es_token_palabra(token):
+            break
+
+        palabras.append(
+            token.casefold()
+        )
+
+        indices.append(
+            indice
+        )
+
+        indice += 1
+
+        if indice >= len(tokens):
+            break
+
+        if not tokens[indice].isspace():
+            break
+
+        indice += 1
+
+    return (
+        palabras,
+        indices
+    )
+
+
+# ============================================================
+# BUSCAR FRASE PARCIAL MÁS LARGA
+# ============================================================
+
+def buscar_frase_parcial(
+    tokens,
+    posicion,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Busca la coincidencia más larga posible.
+
+    EJEMPLO:
+
+        tengo hambre
+
+    Si existen:
+
+        tengo -> I have
+
+        tengo hambre -> I'm hungry
+
+    devuelve:
+
+        tengo hambre -> I'm hungry
+
+    y NO:
+
+        tengo -> I have
+        hambre -> hungry
+
+    ------------------------------------------------------------
+
+    PRIORIDAD:
+
+        1. Personalizada más larga
+        2. Base más larga
+
+    Es decir:
+
+        personalizada de 2 palabras
+
+    gana a:
+
+        base de 2 palabras
+
+    y cualquier coincidencia más corta.
+    """
+
+    clave = (
+        idioma_origen,
+        idioma_destino
+    )
+
+    (
+        palabras,
+        indices
+    ) = obtener_palabras_desde(
+        tokens,
+        posicion
+    )
+
+    if not palabras:
+        return None
+
+    # ========================================================
+    # PERSONALIZADAS
+    # ========================================================
+
+    indice_usuario = (
+        INDICES_FRASES_USUARIO.get(
+            clave,
+            {}
+        )
+    )
+
+    mejor_usuario = None
+
+    for cantidad in range(
+        len(palabras),
+        0,
+        -1
+    ):
+
+        candidato = tuple(
+            palabras[:cantidad]
+        )
+
+        entrada = indice_usuario.get(
+            candidato
+        )
+
+        if entrada is not None:
+
+            mejor_usuario = (
+                cantidad,
+                entrada["traduccion"]
+            )
+
+            break
+
+    # ========================================================
+    # BASE
+    # ========================================================
+
+    indice_base = (
+        INDICES_FRASES.get(
+            clave,
+            {}
+        )
+    )
+
+    mejor_base = None
+
+    for cantidad in range(
+        len(palabras),
+        0,
+        -1
+    ):
+
+        candidato = tuple(
+            palabras[:cantidad]
+        )
+
+        entrada = indice_base.get(
+            candidato
+        )
+
+        if entrada is not None:
+
+            mejor_base = (
+                cantidad,
+                entrada["traduccion"]
+            )
+
+            break
+
+    # ========================================================
+    # COMPARAR RESULTADOS
+    # ========================================================
+
+    if mejor_usuario is None:
+        return mejor_base
+
+    if mejor_base is None:
+        return mejor_usuario
+
+    # Si tienen la misma longitud:
+    # personalizada gana.
+
+    if (
+        mejor_usuario[0]
+        >= mejor_base[0]
+    ):
+        return mejor_usuario
+
+    return mejor_base
+
+
+# ============================================================
+# AVANZAR TOKENS
+# ============================================================
+
+def avanzar_palabras(
+    tokens,
+    posicion,
+    cantidad
+):
+    """
+    Avanza exactamente 'cantidad' palabras
+    y los espacios que haya entre ellas.
+
+    NO consume la puntuación siguiente.
+
+    Esto es importante para conservar:
+
+        tengo hambre!
+
+    como:
+
+        I'm hungry!
+    """
+
+    palabras = 0
+
+    indice = posicion
+
+    while (
+        indice < len(tokens)
+        and palabras < cantidad
+    ):
+
+        token = tokens[indice]
+
+        if es_token_palabra(token):
+
+            palabras += 1
+
+            indice += 1
+
+            if palabras >= cantidad:
+                break
+
+            if (
+                indice < len(tokens)
+                and tokens[indice].isspace()
+            ):
+
+                indice += 1
+
+                continue
+
+            continue
+
+        indice += 1
+
+    return indice
+
+
+# ============================================================
+# TRADUCIR FRASES PARCIALES
+# ============================================================
+
+def traducir_frases_parciales(
+    texto,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Traduce frases dentro de un texto.
+
+    Características:
+
+        - Mayor coincidencia gana.
+        - Personalizadas tienen prioridad.
+        - Se conserva la puntuación.
+        - Se conservan los espacios.
+        - No se mezclan palabras de una frase larga.
+          cuando existe una traducción completa.
+    """
+
+    tokens = tokenizar_texto(
+        texto
+    )
+
+    if not tokens:
+        return None
+
+    resultado = []
+
+    posicion = 0
+
+    hubo_traduccion = False
+
+    while posicion < len(tokens):
+
+        token = tokens[posicion]
+
+        # ====================================================
+        # ESPACIOS
+        # ====================================================
+
+        if token.isspace():
+
+            resultado.append(token)
+
+            posicion += 1
+
+            continue
+
+        # ====================================================
+        # PUNTUACIÓN
+        # ====================================================
+
+        if not es_token_palabra(token):
+
+            resultado.append(token)
+
+            posicion += 1
+
+            continue
+
+        # ====================================================
+        # FRASE MÁS LARGA
+        # ====================================================
+
+        coincidencia = buscar_frase_parcial(
+            tokens,
+            posicion,
+            idioma_origen,
+            idioma_destino
+        )
+
+        if coincidencia is not None:
+
+            cantidad, traduccion = (
+                coincidencia
+            )
+
+            resultado.append(
+                traduccion
+            )
+
+            hubo_traduccion = True
+
+            posicion = avanzar_palabras(
+                tokens,
+                posicion,
+                cantidad
+            )
+
+            continue
+
+        # ====================================================
+        # PALABRA INDIVIDUAL
+        # ====================================================
+
+        traduccion = buscar_palabra_en_direccion(
+            token,
+            idioma_origen,
+            idioma_destino
+        )
+
+        if traduccion is not None:
+
+            resultado.append(
+                traduccion
+            )
+
+            hubo_traduccion = True
+
+        else:
+
+            resultado.append(
+                token
+            )
+
+        posicion += 1
+
+    if not hubo_traduccion:
+        return None
+
+    return "".join(resultado)
+
+
+# ============================================================
+# BUSCAR PALABRA
+# ============================================================
+
+def buscar_palabra(
+    palabra,
+    diccionario
+):
+    """
+    Busca una palabra ignorando mayúsculas/minúsculas.
+
+    Los acentos se conservan.
+    """
+
+    if palabra in diccionario:
+        return diccionario[palabra]
+
+    palabra_cf = palabra.casefold()
+
+    for origen, destino in (
+        diccionario.items()
+    ):
+
+        if (
+            origen.casefold()
+            == palabra_cf
+        ):
+            return destino
+
+    return None
+
+
+def buscar_palabra_en_direccion(
+    palabra,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Busca primero en personalizadas y después
+    en el diccionario base.
+    """
+
+    clave = (
+        idioma_origen,
+        idioma_destino
+    )
+
+    diccionario_usuario = (
+        TRADUCCIONES_USUARIO.get(
+            clave,
+            {}
+        )
+    )
+
+    resultado = buscar_palabra(
+        palabra,
+        diccionario_usuario
+    )
+
+    if resultado is not None:
+        return resultado
+
+    diccionario_base = (
+        TRADUCCIONES.get(
+            clave,
+            {}
+        )
+    )
+
+    resultado = buscar_palabra(
+        palabra,
+        diccionario_base
+    )
+
+    return resultado
+
+
+# ============================================================
+# TRADUCCIÓN PALABRA POR PALABRA
+# ============================================================
+
+def traducir_palabras(
+    texto,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Último recurso.
+
+    Traduce palabras individuales.
+
+    Las palabras desconocidas se conservan.
+    """
+
+    if not normalizar(texto):
+        return None
+
+    tokens = tokenizar_texto(
+        texto
+    )
+
+    if not tokens:
+        return None
+
+    resultado = []
+
+    hubo_traduccion = False
+
+    for token in tokens:
+
+        if (
+            token.isspace()
+            or not es_token_palabra(token)
+        ):
+
+            resultado.append(token)
+
+            continue
+
+        traduccion = buscar_palabra_en_direccion(
+            token,
+            idioma_origen,
+            idioma_destino
+        )
+
+        if traduccion is None:
+
+            resultado.append(
+                token
+            )
+
+            continue
+
+        resultado.append(
+            traduccion
+        )
+
+        hubo_traduccion = True
+
+    if not hubo_traduccion:
+        return None
+
+    return "".join(resultado)
+
+
+# ============================================================
+# FUNCIÓN PRINCIPAL DE TRADUCCIÓN
+# ============================================================
+
+def traducir(
+    texto,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Motor principal.
+
+    Orden:
+
+        1. Frase exacta personalizada
+        2. Frase exacta base
+        3. Reglas contextuales
+        4. Frases parciales más largas
+        5. Palabras individuales
+        6. Texto original
+
+    """
+
+    texto = normalizar(texto)
+
+    if not texto:
+        return ""
+
+    clave = (
+        idioma_origen,
+        idioma_destino
+    )
+
+    if (
+        clave not in TRADUCCIONES
+        and clave not in TRADUCCIONES_USUARIO
+    ):
+        return texto
+
+    # ========================================================
+    # 1. FRASE EXACTA
+    # ========================================================
+
+    resultado = buscar_exacta(
+        texto,
+        idioma_origen,
+        idioma_destino
+    )
+
+    if resultado is not None:
+
+        # Si el usuario escribió una pregunta
+        # y la traducción personalizada/base no
+        # incluye signos, se conserva la traducción
+        # tal como está definida.
+        return resultado
+
+    # ========================================================
+    # 2. REGLAS CONTEXTUALES
+    # ========================================================
+
+    resultado = reglas_especiales(
+        texto,
+        idioma_origen,
+        idioma_destino
+    )
+
+    if resultado is not None:
+        return resultado
+
+    # ========================================================
+    # 3. FRASES PARCIALES
+    # ========================================================
+
+    resultado = traducir_frases_parciales(
+        texto,
+        idioma_origen,
+        idioma_destino
+    )
+
+    if resultado is not None:
+
+        # Si era una pregunta y el resultado no termina
+        # en ?, añadimos el signo correspondiente.
+
+        if es_pregunta(texto):
+
+            if not resultado.endswith("?"):
+
+                resultado = formatear_pregunta(
+                    resultado,
+                    idioma_destino
+                )
+
+        return resultado
+
+    # ========================================================
+    # 4. PALABRAS INDIVIDUALES
+    # ========================================================
+
+    resultado = traducir_palabras(
+        texto,
+        idioma_origen,
+        idioma_destino
+    )
+
+    if resultado is not None:
+
+        if es_pregunta(texto):
+
+            if not resultado.endswith("?"):
+
+                resultado = formatear_pregunta(
+                    resultado,
+                    idioma_destino
+                )
+
+        return resultado
+
+    # ========================================================
+    # 5. DESCONOCIDO
+    # ========================================================
+
+    return texto
+
+
+# ============================================================
+# GESTIÓN DE TRADUCCIONES PERSONALIZADAS
+# ============================================================
+
+def guardar_traduccion_personalizada(
+    texto_origen,
+    texto_destino,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Añade o reemplaza una traducción personalizada.
+    """
+
+    texto_origen = normalizar(
+        texto_origen
+    )
+
+    texto_destino = normalizar(
+        texto_destino
+    )
+
+    if not texto_origen:
+        return False
+
+    if not texto_destino:
+        return False
+
+    clave = (
+        idioma_origen,
+        idioma_destino
+    )
+
+    if clave not in TRADUCCIONES_USUARIO:
+
+        TRADUCCIONES_USUARIO[
+            clave
+        ] = {}
+
+    # ========================================================
+    # Buscar clave existente respetando casefold()
+    # ========================================================
+
+    clave_existente = None
+
+    objetivo = normalizar_busqueda(
+        texto_origen
+    )
+
+    for origen in (
+        TRADUCCIONES_USUARIO[
+            clave
+        ].keys()
+    ):
+
+        if (
+            normalizar_busqueda(
+                origen
+            )
+            == objetivo
+        ):
+
+            clave_existente = origen
+
+            break
+
+    if clave_existente is not None:
+
+        del TRADUCCIONES_USUARIO[
+            clave
+        ][clave_existente]
+
+    TRADUCCIONES_USUARIO[
+        clave
+    ][texto_origen] = (
+        texto_destino
+    )
+
+    if not guardar_traducciones_usuario(
+        TRADUCCIONES_USUARIO
+    ):
+
+        return False
+
+    reconstruir_indices()
+
+    reconstruir_indices_frases()
+
+    return True
+
+
+def borrar_traduccion_personalizada(
+    texto_origen,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Borra una traducción personalizada.
+
+    La búsqueda ignora mayúsculas/minúsculas
+    pero conserva la sensibilidad a los acentos.
+    """
+
+    clave = (
+        idioma_origen,
+        idioma_destino
+    )
+
+    diccionario = (
+        TRADUCCIONES_USUARIO.get(
+            clave
+        )
+    )
+
+    if not diccionario:
+        return False
+
+    objetivo = normalizar_busqueda(
+        texto_origen
+    )
+
+    encontrada = None
+
+    for origen in diccionario:
+
+        if (
+            normalizar_busqueda(
+                origen
+            )
+            == objetivo
+        ):
+
+            encontrada = origen
+
+            break
+
+    if encontrada is None:
+        return False
+
+    del diccionario[
+        encontrada
+    ]
+
+    if not diccionario:
+
+        del TRADUCCIONES_USUARIO[
+            clave
+        ]
+
+    if not guardar_traducciones_usuario(
+        TRADUCCIONES_USUARIO
+    ):
+
+        return False
+
+    reconstruir_indices()
+
+    reconstruir_indices_frases()
+
+    return True
+
+
+# ============================================================
+# MOSTRAR TRADUCCIONES PERSONALIZADAS
+# ============================================================
+
+def mostrar_traducciones_usuario(
+    idioma_origen=None,
+    idioma_destino=None
+):
+    """
+    Muestra las traducciones personalizadas.
+
+    Si se indican idiomas, muestra únicamente esa dirección.
+    """
+
+    print()
+    print("=" * 50)
+    print("          TRADUCCIONES PERSONALIZADAS")
+    print("=" * 50)
     print()
 
-    print("=" * 60)
-    print()
+    if (
+        idioma_origen is not None
+        and idioma_destino is not None
+    ):
 
-    print("L + Enter  →  Cambiar idiomas")
-    print("C + Enter  →  Copiar traducción")
-    print("Enter      →  Siguiente")
-    print("Ctrl+C     →  Salir")
+        claves = [
+            (
+                idioma_origen,
+                idioma_destino
+            )
+        ]
 
-    print()
-    print("-" * 60)
+    else:
+
+        claves = list(
+            TRADUCCIONES_USUARIO.keys()
+        )
+
+    total = 0
+
+    for clave in claves:
+
+        diccionario = (
+            TRADUCCIONES_USUARIO.get(
+                clave,
+                {}
+            )
+        )
+
+        if not diccionario:
+            continue
+
+        origen, destino = clave
+
+        print(
+            f"{origen.upper()} → "
+            f"{destino.upper()}"
+        )
+
+        print("-" * 50)
+
+        for texto, traduccion in (
+            diccionario.items()
+        ):
+
+            print(
+                f"  {texto}  →  "
+                f"{traduccion}"
+            )
+
+            total += 1
+
+        print()
+
+    if total == 0:
+
+        print(
+            "No hay traducciones "
+            "personalizadas guardadas."
+        )
+
+    print("=" * 50)
     print()
 
 
@@ -960,390 +2529,907 @@ def mostrar_cabecera():
 # ============================================================
 
 def copiar_portapapeles(texto):
+    """
+    Intenta copiar texto al portapapeles.
+
+    Windows:
+        clip
+
+    Termux:
+        termux-clipboard-set
+
+    Linux:
+        wl-copy
+        xclip
+        xsel
+    """
 
     if not texto:
-
         return False
 
-    # --------------------------------------------------------
+    # ========================================================
     # WINDOWS
-    # --------------------------------------------------------
+    # ========================================================
 
-    if WINDOWS:
+    if shutil.which("clip"):
 
         try:
 
-            proceso = subprocess.run(
-                [
-                    "powershell",
-                    "-NoProfile",
-                    "-Command",
-                    "Set-Clipboard -Value ([Console]::In.ReadToEnd())"
-                ],
-                input=texto,
-                text=True,
-                capture_output=True
+            proceso = subprocess.Popen(
+                ["clip"],
+                stdin=subprocess.PIPE,
+                text=True
             )
 
-            return proceso.returncode == 0
+            proceso.communicate(texto)
+
+            return (
+                proceso.returncode == 0
+            )
 
         except Exception:
+            pass
 
-            return False
-
-    # --------------------------------------------------------
+    # ========================================================
     # TERMUX
-    # --------------------------------------------------------
+    # ========================================================
 
-    if "TERMUX_VERSION" in os.environ:
+    if shutil.which(
+        "termux-clipboard-set"
+    ):
 
         try:
 
-            proceso = subprocess.run(
-                ["termux-clipboard-set"],
-                input=texto,
-                text=True,
-                capture_output=True
+            proceso = subprocess.Popen(
+                [
+                    "termux-clipboard-set"
+                ],
+                stdin=subprocess.PIPE,
+                text=True
             )
 
-            return proceso.returncode == 0
+            proceso.communicate(texto)
+
+            return (
+                proceso.returncode == 0
+            )
 
         except Exception:
+            pass
 
-            return False
+    # ========================================================
+    # LINUX / WAYLAND
+    # ========================================================
 
-    # --------------------------------------------------------
-    # LINUX
-    # --------------------------------------------------------
+    if shutil.which("wl-copy"):
 
-    try:
+        try:
 
-        import shutil
+            proceso = subprocess.Popen(
+                ["wl-copy"],
+                stdin=subprocess.PIPE,
+                text=True
+            )
 
-        # ----------------------------------------------------
-        # XCLIP
-        # ----------------------------------------------------
+            proceso.communicate(texto)
 
-        if shutil.which("xclip"):
+            return (
+                proceso.returncode == 0
+            )
 
-            proceso = subprocess.run(
+        except Exception:
+            pass
+
+    # ========================================================
+    # LINUX / XCLIP
+    # ========================================================
+
+    if shutil.which("xclip"):
+
+        try:
+
+            proceso = subprocess.Popen(
                 [
                     "xclip",
                     "-selection",
                     "clipboard"
                 ],
-                input=texto,
-                text=True,
-                capture_output=True
+                stdin=subprocess.PIPE,
+                text=True
             )
 
-            if proceso.returncode == 0:
+            proceso.communicate(texto)
 
-                return True
+            return (
+                proceso.returncode == 0
+            )
 
-        # ----------------------------------------------------
-        # XSEL
-        # ----------------------------------------------------
+        except Exception:
+            pass
 
-        if shutil.which("xsel"):
+    # ========================================================
+    # LINUX / XSEL
+    # ========================================================
 
-            proceso = subprocess.run(
+    if shutil.which("xsel"):
+
+        try:
+
+            proceso = subprocess.Popen(
                 [
                     "xsel",
                     "--clipboard",
                     "--input"
                 ],
-                input=texto,
-                text=True,
-                capture_output=True
+                stdin=subprocess.PIPE,
+                text=True
             )
 
-            if proceso.returncode == 0:
+            proceso.communicate(texto)
 
-                return True
-
-        # ----------------------------------------------------
-        # WAYLAND
-        # ----------------------------------------------------
-
-        if shutil.which("wl-copy"):
-
-            proceso = subprocess.run(
-                ["wl-copy"],
-                input=texto,
-                text=True,
-                capture_output=True
+            return (
+                proceso.returncode == 0
             )
 
-            if proceso.returncode == 0:
-
-                return True
-
-    except Exception:
-
-        pass
+        except Exception:
+            pass
 
     return False
 
 
 # ============================================================
-# MENSAJE
+# MENÚ
 # ============================================================
 
-def mostrar_mensaje(mensaje):
+def mostrar_menu(
+    idioma_origen,
+    idioma_destino
+):
 
     print()
-    print(mensaje)
+    print("=" * 50)
+    print("                    TRADUCTOR")
+    print("=" * 50)
     print()
 
+    print(
+        f"              {idioma_origen.upper()} → "
+        f"{idioma_destino.upper()}"
+    )
 
-# ============================================================
-# DIVIDIR TEXTO LARGO
-# ============================================================
-
-def dividir_texto(texto, max_bytes=450):
-
-    palabras = texto.split()
-
-    trozos = []
-
-    actual = ""
-
-    for palabra in palabras:
-
-        if actual:
-
-            candidato = (
-                actual + " " + palabra
-            )
-
-        else:
-
-            candidato = palabra
-
-        if len(
-            candidato.encode("utf-8")
-        ) <= max_bytes:
-
-            actual = candidato
-
-        else:
-
-            if actual:
-
-                trozos.append(actual)
-
-            # ------------------------------------------------
-            # Palabra demasiado larga
-            # ------------------------------------------------
-
-            if len(
-                palabra.encode("utf-8")
-            ) > max_bytes:
-
-                parte = ""
-
-                for caracter in palabra:
-
-                    prueba = (
-                        parte + caracter
-                    )
-
-                    if len(
-                        prueba.encode("utf-8")
-                    ) <= max_bytes:
-
-                        parte = prueba
-
-                    else:
-
-                        if parte:
-
-                            trozos.append(
-                                parte
-                            )
-
-                        parte = caracter
-
-                actual = parte
-
-            else:
-
-                actual = palabra
-
-    if actual:
-
-        trozos.append(actual)
-
-    return trozos
+    print()
+    print("  L + Enter  →  Cambiar idiomas")
+    print("  G + Enter  →  Guardar traducción")
+    print("  B + Enter  →  Borrar traducción")
+    print("  V + Enter  →  Ver traducciones")
+    print("  C + Enter  →  Copiar traducción")
+    print("  Enter      →  Siguiente")
+    print("  Q + Enter  →  Salir")
+    print()
+    print("-" * 50)
 
 
 # ============================================================
-# TRADUCIR UN TROZO
+# COMANDO G
 # ============================================================
 
-def traducir_trozo(texto):
+def comando_guardar(
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Permite guardar manualmente una traducción.
 
-    parametros = {
-        "q": texto,
-        "langpair": f"{origen}|{destino}",
-        "mt": "1"
-    }
+    G + Enter
+    """
+
+    print()
+    print("=" * 50)
+    print("       GUARDAR TRADUCCIÓN PERSONALIZADA")
+    print("=" * 50)
+    print()
+
+    print(
+        f"Dirección: "
+        f"{idioma_origen.upper()} → "
+        f"{idioma_destino.upper()}"
+    )
+
+    print()
 
     try:
 
-        respuesta = requests.get(
-            API_URL,
-            params=parametros,
-            timeout=15
+        origen = input(
+            "Frase o palabra original: "
         )
 
-        respuesta.raise_for_status()
+        if not origen.strip():
 
-        datos = respuesta.json()
+            print()
+            print(
+                "No se ha introducido "
+                "ninguna frase."
+            )
 
-        if datos.get("responseStatus") != 200:
+            return
 
-            raise Exception(
-                datos.get(
-                    "responseDetails",
-                    "Error desconocido"
+        destino = input(
+            "Traducción personalizada: "
+        )
+
+        if not destino.strip():
+
+            print()
+            print(
+                "No se ha introducido "
+                "ninguna traducción."
+            )
+
+            return
+
+        origen = normalizar(
+            origen
+        )
+
+        destino = normalizar(
+            destino
+        )
+
+        # ====================================================
+        # Comprobar traducción personalizada existente
+        # ====================================================
+
+        diccionario = (
+            TRADUCCIONES_USUARIO.get(
+                (
+                    idioma_origen,
+                    idioma_destino
+                ),
+                {}
+            )
+        )
+
+        encontrada = None
+
+        objetivo = normalizar_busqueda(
+            origen
+        )
+
+        for clave in diccionario:
+
+            if (
+                normalizar_busqueda(
+                    clave
                 )
+                == objetivo
+            ):
+
+                encontrada = clave
+
+                break
+
+        if encontrada is not None:
+
+            anterior = diccionario[
+                encontrada
+            ]
+
+            print()
+            print(
+                "Ya existe una traducción "
+                "personalizada para esa frase."
             )
 
-        traduccion = (
-            datos
-            .get("responseData", {})
-            .get("translatedText")
-        )
-
-        if not traduccion:
-
-            raise Exception(
-                "La API no devolvió ninguna traducción."
+            print(
+                f"Actual: {anterior}"
             )
 
-        return traduccion
+            print()
 
-    except requests.exceptions.Timeout:
+            confirmar = input(
+                "¿Reemplazarla? [S/N]: "
+            )
 
-        raise Exception(
-            "Tiempo de espera agotado."
+            if (
+                confirmar.strip().casefold()
+                not in (
+                    "s",
+                    "si",
+                    "sí"
+                )
+            ):
+
+                print()
+                print(
+                    "Operación cancelada."
+                )
+
+                return
+
+        # ====================================================
+        # Guardar
+        # ====================================================
+
+        if guardar_traduccion_personalizada(
+            origen,
+            destino,
+            idioma_origen,
+            idioma_destino
+        ):
+
+            print()
+            print(
+                "✓ Traducción personalizada "
+                "guardada correctamente."
+            )
+
+            print()
+            print(
+                f"{origen}  →  {destino}"
+            )
+
+        else:
+
+            print()
+            print(
+                "No se pudo guardar "
+                "la traducción."
+            )
+
+    except EOFError:
+
+        print()
+        print(
+            "Operación cancelada."
         )
 
-    except requests.exceptions.ConnectionError:
+    return
 
-        raise Exception(
-            "No se pudo conectar con el servicio de traducción."
-        )
-
-    except requests.exceptions.HTTPError as error:
-
-        raise Exception(
-            f"Error HTTP: {error}"
-        )
-
-    except requests.exceptions.RequestException as error:
-
-        raise Exception(
-            f"Error de conexión: {error}"
-        )
 
 
 # ============================================================
-# TRADUCIR TEXTO COMPLETO
+# COMANDO B
 # ============================================================
 
-def traducir(texto):
+def comando_borrar(
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Permite borrar una traducción personalizada.
+    """
 
-    personalizada = buscar_traduccion_personalizada(texto)
+    print()
+    print("=" * 50)
+    print("       BORRAR TRADUCCIÓN PERSONALIZADA")
+    print("=" * 50)
+    print()
 
-    if personalizada is not None:
-
-        return personalizada
-
-    trozos = dividir_texto(texto)
-
-    traducciones = []
-
-    for trozo in trozos:
-
-        traducciones.append(
-            traducir_trozo(trozo)
-        )
-
-    return " ".join(traducciones)
-
-
-
-def buscar_traduccion_personalizada(texto):
-
-    traducciones = TRADUCCIONES_PERSONALIZADAS.get(
-        (origen, destino),
-        {}
+    print(
+        f"Dirección: "
+        f"{idioma_origen.upper()} → "
+        f"{idioma_destino.upper()}"
     )
 
-    texto_normalizado = texto.strip().lower()
+    print()
 
-    for original, traduccion in traducciones.items():
+    try:
 
-        if texto_normalizado == original.lower():
+        origen = input(
+            "Frase o palabra que quieres borrar: "
+        )
+
+        if not origen.strip():
+
+            print()
+            print(
+                "No se ha introducido "
+                "ninguna frase."
+            )
+
+            return
+
+        diccionario = (
+            TRADUCCIONES_USUARIO.get(
+                (
+                    idioma_origen,
+                    idioma_destino
+                ),
+                {}
+            )
+        )
+
+        encontrada = None
+        traduccion = None
+
+        objetivo = normalizar_busqueda(
+            origen
+        )
+
+        for clave, valor in (
+            diccionario.items()
+        ):
+
+            if (
+                normalizar_busqueda(
+                    clave
+                )
+                == objetivo
+            ):
+
+                encontrada = clave
+                traduccion = valor
+
+                break
+
+        if encontrada is None:
+
+            print()
+            print(
+                "No existe una traducción "
+                "personalizada con ese texto."
+            )
+
+            return
+
+        print()
+        print(
+            f"{encontrada}  →  "
+            f"{traduccion}"
+        )
+
+        print()
+
+        confirmar = input(
+            "¿Borrar esta traducción? [S/N]: "
+        )
+
+        if (
+            confirmar.strip().casefold()
+            not in (
+                "s",
+                "si",
+                "sí"
+            )
+        ):
+
+            print()
+            print(
+                "Operación cancelada."
+            )
+
+            return
+
+        if borrar_traduccion_personalizada(
+            encontrada,
+            idioma_origen,
+            idioma_destino
+        ):
+
+            print()
+            print(
+                "✓ Traducción eliminada."
+            )
+
+        else:
+
+            print()
+            print(
+                "No se pudo eliminar "
+                "la traducción."
+            )
+
+    except (
+        KeyboardInterrupt,
+        EOFError
+    ):
+
+        print()
+        print(
+            "Operación cancelada."
+        )
+
+
+# ============================================================
+# COMANDO V
+# ============================================================
+
+def comando_ver(
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Muestra las traducciones personalizadas
+    del idioma actual.
+    """
+
+    mostrar_traducciones_usuario(
+        idioma_origen,
+        idioma_destino
+    )
+
+    try:
+
+        input(
+            "Pulsa Enter para continuar..."
+        )
+
+    except EOFError:
+
+        pass
+
+
+
+# ============================================================
+# COMPROBAR SI EXISTE ALGUNA TRADUCCIÓN
+# ============================================================
+
+def tiene_traduccion(
+    texto,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Comprueba si existe alguna traducción para el texto.
+
+    Se utiliza para distinguir entre:
+
+        "texto desconocido"
+        
+    y:
+
+        "texto traducido correctamente"
+
+    Devuelve:
+
+        True  -> se encontró alguna traducción
+        False -> no se encontró ninguna
+    """
+
+    texto = normalizar(texto)
+
+    if not texto:
+        return False
+
+    # --------------------------------------------------------
+    # 1. FRASE EXACTA
+    # --------------------------------------------------------
+
+    resultado = buscar_exacta(
+        texto,
+        idioma_origen,
+        idioma_destino
+    )
+
+    if resultado is not None:
+        return True
+
+    # --------------------------------------------------------
+    # 2. REGLAS ESPECIALES
+    # --------------------------------------------------------
+
+    resultado = reglas_especiales(
+        texto,
+        idioma_origen,
+        idioma_destino
+    )
+
+    if resultado is not None:
+        return True
+
+    # --------------------------------------------------------
+    # 3. FRASES PARCIALES
+    # --------------------------------------------------------
+
+    resultado = traducir_frases_parciales(
+        texto,
+        idioma_origen,
+        idioma_destino
+    )
+
+    if resultado is not None:
+        return True
+
+    # --------------------------------------------------------
+    # 4. PALABRAS INDIVIDUALES
+    # --------------------------------------------------------
+
+    resultado = traducir_palabras(
+        texto,
+        idioma_origen,
+        idioma_destino
+    )
+
+    if resultado is not None:
+        return True
+
+    return False
+
+
+# ============================================================
+# PREGUNTAR SI SE QUIERE GUARDAR UNA TRADUCCIÓN
+# ============================================================
+
+def preguntar_guardar_si_no_encontrada(
+    texto,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Pregunta al usuario si quiere introducir manualmente
+    una traducción cuando no se ha encontrado ninguna.
+
+    Si responde afirmativamente, permite introducirla
+    directamente sin tener que utilizar G.
+    """
+
+    print()
+    print("=" * 50)
+    print("       TRADUCCIÓN NO ENCONTRADA")
+    print("=" * 50)
+    print()
+
+    print(
+        f"No se ha encontrado una traducción para:"
+    )
+
+    print()
+    print(
+        f'  "{texto}"'
+    )
+
+    print()
+
+    try:
+
+        respuesta = input(
+            "¿Quieres introducir una "
+            "traducción personalizada? [S/N]: "
+        )
+
+        if (
+            respuesta.strip().casefold()
+            not in ("s", "si", "sí")
+        ):
+
+            print()
+            print(
+                "No se ha guardado ninguna "
+                "traducción."
+            )
+
+            return None
+
+        print()
+
+        traduccion = input(
+            "Introduce la traducción: "
+        )
+
+        if not traduccion.strip():
+
+            print()
+            print(
+                "No se ha introducido "
+                "ninguna traducción."
+            )
+
+            return None
+
+        traduccion = normalizar(
+            traduccion
+        )
+
+        if guardar_traduccion_personalizada(
+            texto,
+            traduccion,
+            idioma_origen,
+            idioma_destino
+        ):
+
+            print()
+            print(
+                "✓ Traducción personalizada "
+                "guardada correctamente."
+            )
+
+            print()
+            print(
+                f"{texto}  →  {traduccion}"
+            )
 
             return traduccion
 
-    return None
+        print()
+        print(
+            "No se pudo guardar "
+            "la traducción."
+        )
+
+        return None
+
+    except (
+        KeyboardInterrupt,
+        EOFError
+    ):
+
+        print()
+        print(
+            "Operación cancelada."
+        )
+
+        return None
+
 
 
 # ============================================================
-# CAMBIAR IDIOMAS
+# ESPERAR COMANDO DESPUÉS DE UNA TRADUCCIÓN
 # ============================================================
 
-def cambiar_idiomas():
+def esperar_comando_traduccion(
+    ultima_traduccion,
+    idioma_origen,
+    idioma_destino
+):
+    """
+    Espera una acción después de mostrar una traducción.
 
-    global origen
-    global destino
+    Enter -> siguiente
+    C     -> copiar
+    G     -> guardar
+    B     -> borrar
+    V     -> ver
+    L     -> cambiar idioma
+    Q     -> salir
 
-    origen, destino = destino, origen
+    Devuelve:
 
-
-# ============================================================
-# ESPERAR ENTER PARA CONTINUAR
-# ============================================================
-
-def esperar_enter():
+        "continuar"
+        "salir"
+        "idiomas"
+        "guardar"
+        "borrar"
+        "ver"
+        "copiar"
+    """
 
     while True:
 
         try:
 
-            entrada = input()
+            comando = input(
+                "Comando (Enter = siguiente): "
+            )
 
-        except KeyboardInterrupt:
+            comando = (
+                comando.strip().casefold()
+            )
 
-            raise
+            # ------------------------------------------------
+            # ENTER -> SIGUIENTE
+            # ------------------------------------------------
 
-        except EOFError:
+            if not comando:
+                return "continuar"
 
-            return False
+            # ------------------------------------------------
+            # Q -> SALIR
+            # ------------------------------------------------
 
-        # ----------------------------------------------------
-        # Solamente Enter.
-        # ----------------------------------------------------
+            if comando == "q":
+                return "salir"
 
-        if entrada == "":
+            # ------------------------------------------------
+            # C -> COPIAR
+            # ------------------------------------------------
 
-            return True
+            if comando == "c":
 
-        # ----------------------------------------------------
-        # Si escribe algo, no hacemos nada.
-        # Volvemos a pedir únicamente Enter.
-        # ----------------------------------------------------
+                if not ultima_traduccion:
 
-        print(
-            "Pulsa solamente Enter para continuar.",
-            flush=True
-        )
+                    print()
+                    print(
+                        "No hay ninguna traducción "
+                        "para copiar."
+                    )
 
+                elif copiar_portapapeles(
+                    ultima_traduccion
+                ):
+
+                    print()
+                    print(
+                        "✓ Traducción copiada "
+                        "al portapapeles."
+                    )
+
+                else:
+
+                    print()
+                    print(
+                        "No se pudo acceder al "
+                        "portapapeles en este sistema."
+                    )
+
+                print()
+
+                continue
+
+            # ------------------------------------------------
+            # G -> GUARDAR
+            # ------------------------------------------------
+
+            if comando == "g":
+
+                comando_guardar(
+                    idioma_origen,
+                    idioma_destino
+                )
+
+                print()
+
+                continue
+
+            # ------------------------------------------------
+            # B -> BORRAR
+            # ------------------------------------------------
+
+            if comando == "b":
+
+                comando_borrar(
+                    idioma_origen,
+                    idioma_destino
+                )
+
+                print()
+
+                continue
+
+            # ------------------------------------------------
+            # V -> VER
+            # ------------------------------------------------
+
+            if comando == "v":
+
+                comando_ver(
+                    idioma_origen,
+                    idioma_destino
+                )
+
+                print()
+
+                continue
+
+            # ------------------------------------------------
+            # L -> CAMBIAR IDIOMA
+            # ------------------------------------------------
+
+            if comando == "l":
+
+                return "idiomas"
+
+            # ------------------------------------------------
+            # COMANDO DESCONOCIDO
+            # ------------------------------------------------
+
+            print()
+            print(
+                "Comando no válido."
+            )
+
+            print(
+                "Usa C, G, B, V, L, Q "
+                "o pulsa Enter."
+            )
+
+            print()
+
+        except (
+            KeyboardInterrupt,
+            EOFError
+        ):
+
+            return "salir"
 
 # ============================================================
 # PROGRAMA PRINCIPAL
@@ -1351,359 +3437,363 @@ def esperar_enter():
 
 def main():
 
-    global ultima_traduccion
+    idioma_origen = (
+        IDIOMA_ORIGEN_INICIAL
+    )
 
-    # --------------------------------------------------------
-    # Indica si existe una traducción que se puede copiar.
-    # --------------------------------------------------------
+    idioma_destino = (
+        IDIOMA_DESTINO_INICIAL
+    )
 
-    traduccion_recibida = False
-
-    mostrar_cabecera()
+    ultima_traduccion = ""
 
     while True:
 
         try:
 
             # =================================================
-            # ESCRIBIR TEXTO
+            # LIMPIAR PANTALLA
             # =================================================
 
-            texto = input("Texto: ")
+            limpiar_pantalla()
+
+            # =================================================
+            # MOSTRAR MENÚ
+            # =================================================
+
+            mostrar_menu(
+                idioma_origen,
+                idioma_destino
+            )
+
+            texto = input(
+                "Texto: "
+            )
+
+            comando = (
+                texto.strip().casefold()
+            )
+
+            # =================================================
+            # CAMBIAR IDIOMAS
+            # =================================================
+
+            if comando == "l":
+
+                (
+                    idioma_origen,
+                    idioma_destino
+                ) = (
+                    idioma_destino,
+                    idioma_origen
+                )
+
+                print()
+                print(
+                    "Idiomas cambiados: "
+                    f"{idioma_origen.upper()} → "
+                    f"{idioma_destino.upper()}"
+                )
+
+                input(
+                    "\nPulsa Enter para continuar..."
+                )
+
+                continue
+
+            # =================================================
+            # GUARDAR TRADUCCIÓN
+            # =================================================
+
+            if comando == "g":
+
+                comando_guardar(
+                    idioma_origen,
+                    idioma_destino
+                )
+
+                input(
+                    "\nPulsa Enter para continuar..."
+                )
+
+                continue
+
+            # =================================================
+            # BORRAR TRADUCCIÓN
+            # =================================================
+
+            if comando == "b":
+
+                comando_borrar(
+                    idioma_origen,
+                    idioma_destino
+                )
+
+                input(
+                    "\nPulsa Enter para continuar..."
+                )
+
+                continue
+
+            # =================================================
+            # VER TRADUCCIONES
+            # =================================================
+
+            if comando == "v":
+
+                comando_ver(
+                    idioma_origen,
+                    idioma_destino
+                )
+
+                continue
+
+            # =================================================
+            # COPIAR
+            # =================================================
+
+            if comando == "c":
+
+                if not ultima_traduccion:
+
+                    print()
+                    print(
+                        "No hay ninguna traducción "
+                        "para copiar."
+                    )
+
+                    input(
+                        "\nPulsa Enter para continuar..."
+                    )
+
+                    continue
+
+                if copiar_portapapeles(
+                    ultima_traduccion
+                ):
+
+                    print()
+                    print(
+                        "✓ Traducción copiada "
+                        "al portapapeles."
+                    )
+
+                else:
+
+                    print()
+                    print(
+                        "No se pudo acceder al "
+                        "portapapeles en este sistema."
+                    )
+
+                input(
+                    "\nPulsa Enter para continuar..."
+                )
+
+                continue
+
+            #================================
+            #  SALIR
+            #================================
+
+            if comando == "q":
+
+                print()
+                print("Saliendo...")
+
+                break
+
+
+            # =================================================
+            # TEXTO VACÍO
+            # =================================================
+
+            if not texto.strip():
+
+                continue
+
+            # =================================================
+            # TRADUCIR
+            # =================================================
+
+            print()
+            print(
+                "Traduciendo..."
+            )
+
+            encontrada = tiene_traduccion(
+                texto,
+                idioma_origen,
+                idioma_destino
+            )
+
+            # =================================================
+            # NO SE ENCONTRÓ TRADUCCIÓN
+            # =================================================
+
+            if not encontrada:
+
+                print()
+                print("-" * 50)
+                print()
+                print(
+                    "TRADUCCIÓN:"
+                )
+                print()
+                print(
+                    texto
+                )
+                print()
+                print("-" * 50)
+
+                traduccion_nueva = (
+                    preguntar_guardar_si_no_encontrada(
+                        texto,
+                        idioma_origen,
+                        idioma_destino
+                    )
+                )
+
+                if traduccion_nueva is not None:
+
+                    ultima_traduccion = (
+                        traduccion_nueva
+                    )
+
+                else:
+
+                    ultima_traduccion = texto
+
+                input(
+                    "\nPulsa Enter para continuar..."
+                )
+
+                continue
+
+            # =================================================
+            # TRADUCCIÓN ENCONTRADA
+            # =================================================
+
+            resultado = traducir(
+                texto,
+                idioma_origen,
+                idioma_destino
+            )
+
+            ultima_traduccion = (
+                resultado
+            )
+
+            print()
+            print("-" * 50)
+            print()
+            print(
+                "TRADUCCIÓN:"
+            )
+            print()
+            print(
+                resultado
+            )
+            print()
+            print("-" * 50)
+            print()
+
+            accion = esperar_comando_traduccion(
+                ultima_traduccion,
+                idioma_origen,
+                idioma_destino
+            )
+
+            if accion == "salir":
+
+                print()
+                print("Saliendo...")
+                break
+
+            if accion == "idiomas":
+
+                (
+                    idioma_origen,
+                    idioma_destino
+                ) = (
+                    idioma_destino,
+                    idioma_origen
+                )
+
+                print()
+                print(
+                    "Idiomas cambiados: "
+                    f"{idioma_origen.upper()} → "
+                    f"{idioma_destino.upper()}"
+                )
+
+                continue
+
+            if accion == "continuar":
+
+                continue
+
 
         except KeyboardInterrupt:
 
-            limpiar_terminal()
+            # =================================================
+            # CTRL+C
+            # =================================================
 
             print()
-            print("Saliendo...")
             print()
+            print(
+                "Saliendo..."
+            )
 
             break
 
         except EOFError:
 
-            limpiar_terminal()
+            # =================================================
+            # CTRL+D / EOF
+            # =================================================
 
             print()
-            print("Saliendo...")
             print()
+            print(
+                "Saliendo..."
+            )
 
             break
 
-        # =====================================================
-        # QUITAR ESPACIOS
-        # =====================================================
-
-        texto = texto.strip()
-
-        # =====================================================
-        # ENTER SOLO
-        # =====================================================
-        #
-        # Si no estamos escribiendo una traducción y se pulsa
-        # Enter, simplemente seguimos esperando.
-        #
-        # =====================================================
-
-        if not texto:
-
-            continue
-
-        # =====================================================
-        # CAMBIAR IDIOMAS
-        # =====================================================
-        #
-        # L + Enter
-        #
-        # =====================================================
-
-        if texto == "L":
-
-            cambiar_idiomas()
-
-            ultima_traduccion = ""
-
-            traduccion_recibida = False
-
-            mostrar_cabecera()
-
-            continue
-
-        # =====================================================
-        # COPIAR TRADUCCIÓN
-        # =====================================================
-        #
-        # C + Enter
-        #
-        # =====================================================
-
-        if texto == "C":
-
-            if not traduccion_recibida:
-
-                mostrar_mensaje(
-                    "No hay ninguna traducción para copiar."
-                )
-
-                print(
-                    "Pulsa Enter para continuar: ",
-                    end="",
-                    flush=True
-                )
-
-                try:
-
-                    if not esperar_enter():
-
-                        break
-
-                except KeyboardInterrupt:
-
-                    break
-
-                mostrar_cabecera()
-
-                continue
-
-            # ------------------------------------------------
-            # Copiar
-            # ------------------------------------------------
-
-            if copiar_portapapeles(
-                ultima_traduccion
-            ):
-
-                mostrar_mensaje(
-                    "✓ Traducción copiada al portapapeles."
-                )
-
-            else:
-
-                mostrar_mensaje(
-                    "✗ No se pudo copiar al portapapeles."
-                )
-
-            # ------------------------------------------------
-            # Después de copiar NO limpiamos todavía.
-            #
-            # El usuario debe pulsar Enter solo.
-            # ------------------------------------------------
-
-            print(
-                "Pulsa Enter para continuar: ",
-                end="",
-                flush=True
-            )
-
-            try:
-
-                if not esperar_enter():
-
-                    break
-
-            except KeyboardInterrupt:
-
-                break
-
-            mostrar_cabecera()
-
-            continue
-
-        # =====================================================
-        # TRADUCIR
-        # =====================================================
-
-        limpiar_terminal()
-
-        print("=" * 60)
-        print("                    TRADUCTOR")
-        print("=" * 60)
-        print()
-
-        print(
-            f"              {IDIOMAS[origen]} → {IDIOMAS[destino]}"
-        )
-
-        print()
-
-        print("=" * 60)
-        print()
-
-        print("L + Enter  →  Cambiar idiomas")
-        print("C + Enter  →  Copiar traducción")
-        print("Enter      →  Siguiente")
-        print("Ctrl+C     →  Salir")
-
-        print()
-        print("-" * 60)
-        print()
-
-        print(
-            "Texto:",
-            texto
-        )
-
-        print()
-
-        print(
-            "Traduciendo...",
-            flush=True
-        )
-
-        print()
-
-        traduccion_recibida = False
-
-        try:
-
-            resultado = traducir(
-                texto
-            )
-
-            ultima_traduccion = resultado
-
-            traduccion_recibida = True
-
-            print("-" * 60)
-            print("TRADUCCIÓN:")
-            print()
-            print(resultado)
-            print("-" * 60)
-            print()
-
-            # ------------------------------------------------
-            # Ahora el usuario puede:
-            #
-            # C + Enter → copiar
-            # L + Enter → cambiar idioma
-            # Enter     → siguiente
-            #
-            # ------------------------------------------------
-
-            print(
-                "C + Enter → copiar | "
-                "L + Enter → cambiar idioma | "
-                "Enter → siguiente"
-            )
-
-            while True:
-
-                try:
-
-                    siguiente = input()
-
-                except KeyboardInterrupt:
-
-                    raise
-
-                except EOFError:
-
-                    return
-
-                # --------------------------------------------
-                # ENTER SOLO
-                # --------------------------------------------
-
-                if siguiente == "":
-
-                    limpiar_terminal()
-
-                    mostrar_cabecera()
-
-                    break
-
-                # --------------------------------------------
-                # COPIAR
-                # --------------------------------------------
-
-                if siguiente == "C":
-
-                    if copiar_portapapeles(
-                        ultima_traduccion
-                    ):
-
-                        mostrar_mensaje(
-                            "✓ Traducción copiada al portapapeles."
-                        )
-
-                    else:
-
-                        mostrar_mensaje(
-                            "✗ No se pudo copiar al portapapeles."
-                        )
-
-                    print(
-                        "Pulsa Enter para continuar: ",
-                        end="",
-                        flush=True
-                    )
-
-                    continue
-
-                # --------------------------------------------
-                # CAMBIAR IDIOMA
-                # --------------------------------------------
-
-                if siguiente == "L":
-
-                    cambiar_idiomas()
-
-                    ultima_traduccion = ""
-
-                    traduccion_recibida = False
-
-                    limpiar_terminal()
-
-                    mostrar_cabecera()
-
-                    break
-
-                # --------------------------------------------
-                # CUALQUIER OTRA COSA
-                # --------------------------------------------
-
-                print(
-                    "Introduce C, L o pulsa solamente Enter.",
-                    flush=True
-                )
-
         except Exception as error:
 
-            ultima_traduccion = ""
-
-            traduccion_recibida = False
-
-            print("-" * 60)
-            print("ERROR:")
             print()
-            print(error)
-            print("-" * 60)
-            print()
-
             print(
-                "Pulsa Enter para continuar: ",
-                end="",
-                flush=True
+                "ERROR:",
+                error
             )
+
+            print()
 
             try:
 
-                if not esperar_enter():
+                input(
+                    "Pulsa Enter para continuar..."
+                )
 
-                    break
+            except (
+                KeyboardInterrupt,
+                EOFError
+            ):
 
-            except KeyboardInterrupt:
+                print()
+                print(
+                    "Saliendo..."
+                )
 
                 break
-
-            mostrar_cabecera()
 
 
 # ============================================================
-# INICIO
+# EJECUCIÓN
 # ============================================================
 
 if __name__ == "__main__":
-
     main()
