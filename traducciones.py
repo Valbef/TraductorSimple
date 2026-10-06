@@ -257,7 +257,6 @@ TRADUCCIONES = {
         # Afirmación / negación
         "si": "yes",
         "no": "no",
-        "claro": "of course",
         "por supuesto": "of course",
         "vale": "okay",
         "de acuerdo": "okay",
@@ -286,8 +285,6 @@ TRADUCCIONES = {
         "te amo": "I love you",
         "te extraño": "I miss you",
         "te echo de menos": "I miss you",
-        "tengo hambre": "I'm hungry",
-        "tengo sed": "I'm thirsty",
         "tengo sueño": "I'm sleepy",
         "tengo miedo": "I'm scared",
         "¿qué pasa?": "what's going on?",
@@ -324,7 +321,6 @@ TRADUCCIONES = {
         "esta tarde": "this afternoon",
         "esta noche": "tonight",
         "ahora mismo": "right now",
-        "esta semana": "this week",
         "la semana que viene": "next week",
         "la semana pasada": "last week",
         "más tarde": "later",
@@ -371,7 +367,6 @@ TRADUCCIONES = {
         "mi habitación":"my room",
         "mi habitacion":"my room",
         "mi abitacion": "my room",
-        "ordenador": "computer",
         "computadora": "computer",
         "aleatorio": "random",
         "teléfono móvil": "mobile phone",
@@ -501,7 +496,6 @@ TRADUCCIONES = {
         "allí": "there",
         "alli": "there",
 
-        "casa": "house",
         "hotel": "hotel",
         "aeropuerto": "airport",
         "trabajo": "work",
@@ -510,13 +504,6 @@ TRADUCCIONES = {
         "telefono": "phone",
         "móvil": "phone",
         "movil": "phone",
-        "habitación": "room",
-        "habitacion": "room",
-
-        "zapatilla": "shoe",
-        "zapatillas": "shoes",
-        "zapato": "shoe",
-        "zapatos": "shoes",
 
         "madre": "mother",
         "mamá": "mom",
@@ -536,14 +523,7 @@ TRADUCCIONES = {
         "personas": "people",
         "cosa": "thing",
         "cosas": "things",
-
-        "día": "day",
-        "dia": "day",
         "noche": "night",
-        "semana": "week",
-        "mes": "month",
-        "año": "year",
-        "ano": "year",
 
         # ====================================================
         # COLORES Y VARIANTES
@@ -563,7 +543,6 @@ TRADUCCIONES = {
         "amarillo": "yellow",
         "amarilla": "yellow",
         "naranja": "orange",
-        "naranja": "orange",
         "rosa": "pink",
         "rosado": "pink",
         "rosada": "pink",
@@ -581,7 +560,6 @@ TRADUCCIONES = {
         "plateada": "silver",
 
         # Tonos claros
-        "azul claro": "light blue",
         "azul claro": "light blue",
         "azul cielo": "sky blue",
         "celeste": "sky blue",
@@ -614,8 +592,6 @@ TRADUCCIONES = {
         "magenta": "magenta",
         "fucsia": "fuchsia",
         "coral": "coral",
-        "salmón": "salmon",
-        "salmon": "salmon",
         "ocre": "ochre",
         "oliva": "olive",
         "verde oliva": "olive green",
@@ -756,7 +732,6 @@ TRADUCCIONES = {
         "igual": "same",
         "diferente": "different",
         "primero": "first",
-        "segundo": "second",
         "tercero": "third",
         "último": "last",
         "ultimo": "last",
@@ -833,10 +808,8 @@ TRADUCCIONES = {
         "estaciones": "seasons",
 
         # Fechas
-        "hoy": "today",
-        "mañana": "tomorrow",
+
         "manana": "tomorrow",
-        "ayer": "yesterday",
         "anteayer": "the day before yesterday",
         "pasado mañana": "the day after tomorrow",
         "pasado manana": "the day after tomorrow",
@@ -986,7 +959,6 @@ TRADUCCIONES = {
         "cuervo": "crow",
         "gallina": "hen",
         "gallo": "rooster",
-        "pollo": "chicken",
         "pato": "duck",
         "cisne": "swan",
         "pingüino": "penguin",
@@ -1036,7 +1008,7 @@ TRADUCCIONES = {
         # Naturaleza
         "naturaleza": "nature",
         "mundo": "world",
-        "tierra": "earth",
+        "planeta tierra": "earth",
         "planeta": "planet",
         "campo": "field",
         "bosque": "forest",
@@ -1074,7 +1046,6 @@ TRADUCCIONES = {
         "raiz": "root",
         "semilla": "seed",
         "fruto": "fruit",
-        "fruta": "fruit",
 
         # Elementos naturales
         "agua": "water",
@@ -1100,9 +1071,6 @@ TRADUCCIONES = {
         "cuerpo": "body",
         "cuerpos": "bodies",
         "humano": "human",
-        "persona": "person",
-        "personas": "people",
-        "piel": "skin",
         "hueso": "bone",
         "huesos": "bones",
         "músculo": "muscle",
@@ -1139,7 +1107,6 @@ TRADUCCIONES = {
         "lengua": "tongue",
         "oreja": "ear",
         "orejas": "ears",
-        "pelo": "hair",
         "barba": "beard",
         "bigote": "mustache",
         "cuello": "neck",
@@ -1295,7 +1262,7 @@ TRADUCCIONES = {
         "calcetín": "sock",
         "calcetin": "sock",
         "calcetines": "socks",
-        "media": "stocking",
+        "medias": "stocking",
 
         # Calzado
         "zapato": "shoe",
@@ -1440,7 +1407,6 @@ TRADUCCIONES = {
         "decoracion": "decoration",
 
         # Cocina
-        "cocina": "kitchen",
         "nevera": "fridge",
         "frigorífico": "fridge",
         "frigorifico": "fridge",
@@ -1503,20 +1469,16 @@ TRADUCCIONES = {
         "cargador": "charger",
         "batería": "battery",
         "bateria": "battery",
-        "reloj": "clock",
         "libro": "book",
         "papel": "paper",
         "bolígrafo": "pen",
         "boligrafo": "pen",
         "lápiz": "pencil",
         "lapiz": "pencil",
-        "mochila": "backpack",
         "caja": "box",
         "bolsa": "bag",
 
         # Estados de la casa
-        "limpio": "clean",
-        "sucio": "dirty",
         "ordenado": "tidy",
         "desordenado": "messy",
         "abierto": "open",
@@ -1530,16 +1492,12 @@ TRADUCCIONES = {
         # ====================================================
 
         # Comida general
-        "comida": "food",
         "alimento": "food",
         "alimentos": "foods",
-        "plato": "dish",
-        "platos": "dishes",
         "receta": "recipe",
         "ingrediente": "ingredient",
         "ingredientes": "ingredients",
         "cocinar": "to cook",
-        "cocina": "cooking",
         "cocinero": "cook",
         "cocinera": "cook",
         "hambre": "hunger",
@@ -1553,7 +1511,6 @@ TRADUCCIONES = {
         "carne": "meat",
         "pollo": "chicken",
         "ternera": "beef",
-        "cerdo": "pork",
         "cordero": "lamb",
         "jamón": "ham",
         "jamon": "ham",
@@ -1594,7 +1551,6 @@ TRADUCCIONES = {
         "manzana": "apple",
         "plátano": "banana",
         "platano": "banana",
-        "naranja": "orange",
         "limón": "lemon",
         "limon": "lemon",
         "fresa": "strawberry",
@@ -1631,7 +1587,6 @@ TRADUCCIONES = {
         # Bebidas
         "bebida": "drink",
         "bebidas": "drinks",
-        "agua": "water",
         "café": "coffee",
         "cafe": "coffee",
         "té": "tea",
@@ -1648,7 +1603,6 @@ TRADUCCIONES = {
         "bar": "bar",
         "camarero": "waiter",
         "camarera": "waitress",
-        "mesa": "table",
         "reserva": "reservation",
         "menú": "menu",
         "menu": "menu",
@@ -1675,6 +1629,11 @@ TRADUCCIONES = {
         "más agua": "more water",
         "mas agua": "more water",
         "la cuenta por favor": "the bill please",
+
+
+
+
+
 
 
 
@@ -1939,14 +1898,9 @@ TRADUCCIONES = {
 
         "now": "ahora",
         "right now": "ahora mismo",
-        "today": "hoy",
-        "tomorrow": "mañana",
-        "yesterday": "ayer",
         "this morning": "esta mañana",
         "this afternoon": "esta tarde",
         "tonight": "esta noche",
-        "this week": "esta semana",
-        "next week": "la semana que viene",
         "last week": "la semana pasada",
         "later": "más tarde",
         "before": "antes",
@@ -1980,7 +1934,6 @@ TRADUCCIONES = {
         "my room": "mi habitación",
         "my car": "mi coche",
         "my phone": "mi teléfono",
-        "computer": "ordenador",
         "mobile phone": "teléfono móvil",
         "random": "aleatorio",
 
@@ -2013,14 +1966,9 @@ TRADUCCIONES = {
         # COMIDA
         # ====================================================
 
-        "I want to eat": "quiero comer",
-        "let's eat": "vamos a comer",
-        "let's have dinner": "vamos a cenar",
         "let's have breakfast": "vamos a desayunar",
         "what are we eating": "¿qué comemos?",
         "what are we eating?": "¿qué comemos?",
-        "it's delicious": "está delicioso",
-        "it's very good": "está muy bueno",
 
         # ====================================================
         # AYUDA / PROBLEMAS
@@ -2088,23 +2036,15 @@ TRADUCCIONES = {
         "that": "eso",
         "here": "aquí",
         "there": "allí",
-
-        "house": "casa",
         "hotel": "hotel",
         "airport": "aeropuerto",
         "work": "trabajo",
         "car": "coche",
         "phone": "teléfono",
-        "room": "habitación",
-
-        "shoe": "zapato",
-        "shoes": "zapatos",
-
         "mother": "madre",
         "mom": "mamá",
         "father": "padre",
         "dad": "papá",
-
         "friend": "amigo",
         "brother": "hermano",
         "sister": "hermana",
@@ -2116,11 +2056,7 @@ TRADUCCIONES = {
         "thing": "cosa",
         "things": "cosas",
 
-        "day": "día",
         "night": "noche",
-        "week": "semana",
-        "month": "mes",
-        "year": "año",
 
         # ====================================================
         # COLORS AND VARIANTS
@@ -2177,7 +2113,6 @@ TRADUCCIONES = {
         "magenta": "magenta",
         "fuchsia": "fucsia",
         "coral": "coral",
-        "salmon": "salmón",
         "ochre": "ocre",
         "olive": "oliva",
         "olive green": "verde oliva",
@@ -2291,8 +2226,6 @@ TRADUCCIONES = {
         "same": "igual",
         "different": "diferente",
         "first": "primero",
-        "second": "segundo",
-        "third": "tercero",
         "last": "último",
 
         # Number expressions
@@ -2408,7 +2341,6 @@ TRADUCCIONES = {
         "fog": "niebla",
 
         "heat": "calor",
-        "cold": "frío",
         "temperature": "temperatura",
         "degree": "grado",
         "degrees": "grados",
@@ -2465,7 +2397,6 @@ TRADUCCIONES = {
         "crow": "cuervo",
         "hen": "gallina",
         "rooster": "gallo",
-        "chicken": "pollo",
         "duck": "pato",
         "swan": "cisne",
         "penguin": "pingüino",
@@ -2883,8 +2814,6 @@ TRADUCCIONES = {
         "bag": "bolsa",
 
         # House states
-        "clean": "limpio",
-        "dirty": "sucio",
         "tidy": "ordenado",
         "messy": "desordenado",
         "open": "abierto",
@@ -2926,7 +2855,6 @@ TRADUCCIONES = {
         "bacon": "bacon",
 
         # Fish and seafood
-        "fish": "pescado",
         "salmon": "salmón",
         "tuna": "atún",
         "seafood": "marisco",
@@ -2948,11 +2876,9 @@ TRADUCCIONES = {
         "broccoli": "brócoli",
 
         # Fruits
-        "fruit": "fruta",
         "fruits": "frutas",
         "apple": "manzana",
         "banana": "plátano",
-        "orange": "naranja",
         "lemon": "limón",
         "strawberry": "fresa",
         "grape": "uva",
@@ -2984,7 +2910,6 @@ TRADUCCIONES = {
         # Drinks
         "drink": "bebida",
         "drinks": "bebidas",
-        "water": "agua",
         "coffee": "café",
         "tea": "té",
         "juice": "zumo",
